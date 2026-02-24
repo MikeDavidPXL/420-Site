@@ -4,7 +4,7 @@ import clanLogo from "@/assets/clan-logo.png";
 
 const navItems = [
   { label: "Home", href: "#hero" },
-  { label: "Over Ons", href: "#about" },
+  { label: "About Us", href: "#about" },
   { label: "Features", href: "#features" },
   { label: "Showcase", href: "#video" },
   { label: "Changelog", href: "#changelog" },
@@ -43,7 +43,7 @@ const Navbar = () => {
             <a
               key={item.href}
               href={item.href}
-              className="font-body text-sm font-medium text-muted-foreground hover:text-primary transition-colors duration-200 uppercase tracking-wider"
+              className="font-body text-sm font-medium hover:text-primary transition-colors duration-200 uppercase tracking-wider"
             >
               {item.label}
             </a>

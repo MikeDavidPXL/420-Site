@@ -1,155 +1,73 @@
-# 420 Clan Texture Pack
+# Welcome to your Lovable project
 
-Official texture pack for the 420 Clan FiveM server.
+## Project info
 
-This pack includes custom weapon skins, visual effects, and graphical enhancements.
+**URL**: https://lovable.dev/projects/REPLACE_WITH_PROJECT_ID
 
----
+## How can I edit this code?
 
-# Installation
+There are several ways of editing your application.
 
-1. Download the WinRAR file.
-2. Extract the files into your FiveM directory.
-3. Follow the provided folder structure.
-4. Launch FiveM.
+**Use Lovable**
 
-If Reshade does not load:
-- Open the F8 console.
-- Follow the instructions shown there.
+Simply visit the [Lovable Project](https://lovable.dev/projects/REPLACE_WITH_PROJECT_ID) and start prompting.
 
----
+Changes made via Lovable will be committed automatically to this repo.
 
-# Features
+**Use your preferred IDE**
 
-- Custom Jet Afterburner color (Blue)  
-  If you want another color, send a DM for a different version.
+If you want to work locally using your own IDE, you can clone this repo and push changes. Pushed changes will also be reflected in Lovable.
 
-- Custom weapon skins  
-  Full compatibility list below.
+The only requirement is having Node.js & npm installed - [install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating)
 
-- Custom headshot FX
+Follow these steps:
 
-- QuantV included one time  
-  If QuantV updates, you must install the new version yourself.
+```sh
+# Step 1: Clone the repository using the project's Git URL.
+git clone <YOUR_GIT_URL>
 
-- Reshade with preset included
+# Step 2: Navigate to the project directory.
+cd <YOUR_PROJECT_NAME>
 
----
+# Step 3: Install the necessary dependencies.
+npm i
 
-# Weapon Compatibility
+# Step 4: Start the development server with auto-reloading and an instant preview.
+npm run dev
+```
 
-## Rifles
+**Edit a file directly in GitHub**
 
-| Weapon | Body | Mag1 | Mag2 | Mag3 | Barrel1 | Barrel2 | Sights |
-|--------|------|------|------|------|---------|---------|--------|
-| Advanced Rifle | ✅ | ❌ | ❌ | — | — | — | — |
-| Assault Rifle | ✅ | ✅ | — | ✅ | — | — | — |
-| Compact AK | ✅ | ✅ | ❌ | ✅ | — | — | — |
-| Assault Rifle MK2 | ✅ | ✅ | ✅ | — | ✅ | ✅ | — |
-| Bullpup Rifle | ✅ | ✅ | ✅ | — | — | — | — |
-| Bullpup Rifle MK2 | ✅ | ✅ | ✅ | — | ✅ | ✅ | — |
-| Carbine Rifle | ✅ | ✅ | ✅ | ✅ | — | — | — |
-| Carbine Rifle MK2 | ✅ | ✅ | ✅ | — | ✅ | ✅ | — |
-| Special Carbine | ✅ | ✅ | ✅ | ✅ | — | — | — |
-| Special Carbine MK2 | ✅ | ✅ | ✅ | — | ✅ | ✅ | — |
-| Battle Rifle | ✅ | ✅ | ✅ | — | — | — | ✅ |
-| Military Rifle | ✅ | ✅ | ✅ | — | — | — | ✅ |
-| Service Rifle | ✅ | — | — | — | — | — | — |
+- Navigate to the desired file(s).
+- Click the "Edit" button (pencil icon) at the top right of the file view.
+- Make your changes and commit the changes.
 
----
+**Use GitHub Codespaces**
 
-## Pistols
+- Navigate to the main page of your repository.
+- Click on the "Code" button (green button) near the top right.
+- Select the "Codespaces" tab.
+- Click on "New codespace" to launch a new Codespace environment.
+- Edit files directly within the Codespace and commit and push your changes once you're done.
 
-| Weapon | Body | Mag1 | Mag2 | Suppressor |
-|--------|------|------|------|------------|
-| Pistol | ✅ | ✅ | ✅ | — |
-| Pistol MK2 | ✅ | ✅ | ✅ | — |
-| Heavy Pistol | ✅ | ✅ | ✅ | — |
-| .50 Pistol | ✅ | ✅ | ✅ | — |
-| AP Pistol | ✅ | ✅ | ✅ | — |
-| XM3 | ✅ | ✅ | — | ✅ |
+## What technologies are used for this project?
 
----
+This project is built with:
 
-## Shotguns
+- Vite
+- TypeScript
+- React
+- shadcn-ui
+- Tailwind CSS
 
-| Weapon | Body | Mag1 | Mag2 | Suppressor |
-|--------|------|------|------|------------|
-| Assault Shotgun | ✅ | ✅ | ✅ | — |
-| Combat Shotgun | ✅ | ✅ | — | — |
-| Pump Shotgun | ✅ | — | — | — |
-| Pump Shotgun MK2 | ✅ | — | — | ✅ |
+## How can I deploy this project?
 
----
+Simply open [Lovable](https://lovable.dev/projects/REPLACE_WITH_PROJECT_ID) and click on Share -> Publish.
 
-## SMGs
+## Can I connect a custom domain to my Lovable project?
 
-Work in progress.
+Yes, you can!
 
----
+To connect a domain, navigate to Project > Settings > Domains and click Connect Domain.
 
-## LMGs
-
-| Weapon | Body | Mag1 | Mag2 | Barrel1 | Barrel2 |
-|--------|------|------|------|---------|---------|
-| Combat MG | ✅ | ❌ | ❌ | — | — |
-| Combat MG MK2 | ✅ | ✅ | ✅ | ✅ | ✅ |
-| MG | ✅ | ✅ | ✅ | — | — |
-| Gusenberg | ✅ | ✅ | ✅ | — | — |
-
----
-
-## Large Weapons
-
-| Weapon | Supported |
-|--------|-----------|
-| RPG | ✅ |
-| Homing Launcher | ✅ |
-| Grenade Launcher | ✅ |
-
----
-
-## Snipers
-
-| Weapon | Body | Mag1 | Mag2 | Suppressor |
-|--------|------|------|------|------------|
-| Sniper Rifle | ✅ | ✅ | — | — |
-| Marksman Rifle | ✅ | ✅ | ✅ | — |
-| Marksman MK2 | ✅ | ❌ | ✅ | — |
-| Musket | ✅ | — | — | — |
-| Precision Rifle | ✅ | ✅ | — | — |
-| Heavy MK2 | — | — | — | ✅ |
-
----
-
-## Separate Attachments
-
-- w_at_pi_comp_1  
-- w_at_pi_comp_2  
-- w_at_pi_comp_3  
-- w_at_ar_supp_01  
-- w_at_ar_supp_02  
-- w_at_sr_supp_03  
-- w_at_muzzle_8_xm_l1  
-- w_at_muzzle_8_xm17  
-- w_at_ar_afgrip_hi  
-
----
-
-# Known Issues
-
-The following attachments are currently not working:
-
-- Advanced Rifle: Mag1, Mag2  
-- Compact AK: Mag2  
-- Combat MG: Mag1, Mag2  
-- Marksman MK2: Mag1  
-
-Fix planned in future updates.
-
----
-
-# Version
-
-Current Version: 1.0  
-Status: Active Development
+Read more here: [Setting up a custom domain](https://docs.lovable.dev/features/custom-domain#custom-domain)

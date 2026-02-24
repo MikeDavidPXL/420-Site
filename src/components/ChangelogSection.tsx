@@ -52,7 +52,7 @@ const ChangelogSection = () => {
               <ul className="space-y-1.5">
                 {entry.changes.map((change, j) => (
                   <li key={j} className="text-muted-foreground text-sm flex items-start gap-2">
-                    <span className="text-primary mt-1">•</span>
+                    <span className="text-primary flex-shrink-0 leading-[1.25rem]">•</span>
                     {change}
                   </li>
                 ))}

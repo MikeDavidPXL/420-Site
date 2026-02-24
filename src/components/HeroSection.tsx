@@ -1,6 +1,6 @@
 import { motion } from "framer-motion";
 import { Download } from "lucide-react";
-import heroBanner from "@/assets/hero-banner.jpg";
+import heroBanner from "@/assets/420Gif.png";
 import clanLogo from "@/assets/clan-logo.png";
 
 const HeroSection = () => {
@@ -30,6 +30,9 @@ const HeroSection = () => {
         />
         <motion.h1
           className="font-display text-4xl sm:text-5xl md:text-7xl font-black uppercase mb-4 gradient-neon-text"
+          style={{
+            WebkitTextStroke: '2px rgba(0, 0, 0, 0.2)',
+          }}
           initial={{ opacity: 0, y: 30 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.3, duration: 0.6 }}
@@ -37,13 +40,13 @@ const HeroSection = () => {
           420 Clan Texture Pack
         </motion.h1>
         <motion.p
-          className="text-lg sm:text-xl text-muted-foreground max-w-2xl mx-auto mb-8 font-body"
+          className="text-lg sm:text-xl  max-w-2xl mx-auto mb-8 font-body"
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.5, duration: 0.6 }}
         >
-          Upgrade je FiveM ervaring met onze exclusieve custom textures. 
-          Kleding, wapens, voertuigen en meer — alles in één pack.
+          Upgrade your FiveM experience with our exclusive custom textures. 
+          Clothing, weapons, vehicles, and more — all in one pack.
         </motion.p>
         <motion.a
           href="#download"
@@ -53,7 +56,7 @@ const HeroSection = () => {
           transition={{ delay: 0.7, duration: 0.6 }}
         >
           <Download className="w-5 h-5" />
-          Download Nu
+          Download Now
         </motion.a>
       </div>
     </section>

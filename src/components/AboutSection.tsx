@@ -16,19 +16,18 @@ const AboutSection = () => {
           transition={{ duration: 0.6 }}
         >
           <h2 className="font-display text-3xl sm:text-4xl font-bold uppercase mb-6 neon-text-blue text-primary">
-            Over 420 Clan
+            About 420 Clan
           </h2>
           <p className="text-lg text-muted-foreground mb-8 leading-relaxed">
-            Wij zijn de <span className="text-primary font-semibold">420 Clan</span> — een 
-            community van dedicated FiveM spelers die de game naar een hoger level tillen. 
-            Ons texture pack is speciaal ontworpen om je server ervaring compleet te transformeren 
-            met custom content van de hoogste kwaliteit.
+            We are <span className="text-primary font-semibold">420 Clan</span> — a 
+            community of dedicated FiveM players who take CosmicV to the next level. 
+            Our texture pack made by <span className="text-primary font-semibold">M1K3</span> is designed to fully transform your server experience 
+            with high-quality custom content.
           </p>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             {[
               { number: "50+", label: "Custom Textures" },
-              { number: "1K+", label: "Downloads" },
-              { number: "24/7", label: "Community Support" },
+              { number: "24/7", label: "Community Support In Discord" },
             ].map((stat, i) => (
               <motion.div
                 key={stat.label}

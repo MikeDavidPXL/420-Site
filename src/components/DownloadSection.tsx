@@ -1,10 +1,26 @@
 import { motion, useInView } from "framer-motion";
-import { useRef } from "react";
+import { useRef, useEffect, useState } from "react";
 import { Download, FileArchive, HardDrive, Hash } from "lucide-react";
 
 const DownloadSection = () => {
   const ref = useRef(null);
   const isInView = useInView(ref, { once: true, margin: "-100px" });
+  const [latestVersion, setLatestVersion] = useState("1.2.0");
+  const [fileSize, setFileSize] = useState("601.6 MB");
+
+  useEffect(() => {
+    fetch("/changelog.json")
+      .then((res) => res.json())
+      .then((data) => {
+        if (data && data.length > 0) {
+          setLatestVersion(data[0].version);
+          if (data[0].fileSize) {
+            setFileSize(data[0].fileSize);
+          }
+        }
+      })
+      .catch(console.error);
+  }, []);
 
   return (
     <section id="download" className="py-24 relative smoke-overlay">
@@ -19,7 +35,7 @@ const DownloadSection = () => {
             Download
           </h2>
           <p className="text-muted-foreground mb-10">
-            Pak het texture pack en transformeer je FiveM ervaring vandaag nog.
+            Grab the texture pack and transform your FiveM experience today.
           </p>
 
           {/* File info card */}
@@ -38,17 +54,17 @@ const DownloadSection = () => {
             <div className="flex items-center justify-center gap-8 text-sm text-muted-foreground mb-8">
               <div className="flex items-center gap-2">
                 <Hash className="w-4 h-4 text-secondary" />
-                <span>v1.2.0</span>
+                <span>v{latestVersion}</span>
               </div>
               <div className="flex items-center gap-2">
                 <HardDrive className="w-4 h-4 text-secondary" />
-                <span>247 MB</span>
+                <span>{fileSize}</span>
               </div>
             </div>
             <a
-              href="#"
+              href="https://drive.google.com/drive/u/0/folders/1-rMFHAWvzPGLfbwvgcGsbM5_fB0cdHwa"
               download
-              className="inline-flex items-center gap-3 bg-primary text-primary-foreground font-display font-bold text-lg px-10 py-4 rounded-lg neon-box-blue hover:scale-105 animate-pulse-neon transition-transform duration-200 uppercase tracking-wider"
+              className="inline-flex items-center gap-3 bg-primary text-primary-foreground font-display font-bold text-lg px-10 py-4 rounded-lg neon-box-blue hover:scale-105 animate-pulse-neon transition-all duration-1000 ease-in-out uppercase tracking-wider"
             >
               <Download className="w-6 h-6" />
               Download .RAR
@@ -56,7 +72,7 @@ const DownloadSection = () => {
           </motion.div>
 
           <p className="text-muted-foreground text-xs">
-            Je hebt <span className="text-primary">WinRAR</span> of <span className="text-primary">7-Zip</span> nodig om het bestand uit te pakken.
+            You need <span className="text-primary">WinRAR</span> or <span className="text-primary">7-Zip</span> to extract this file.
           </p>
         </motion.div>
       </div>

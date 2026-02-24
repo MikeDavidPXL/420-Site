@@ -22,7 +22,7 @@ const VideoSection = () => {
           animate={isInView ? { opacity: 1 } : {}}
           transition={{ delay: 0.2, duration: 0.5 }}
         >
-          Bekijk de nieuwste updates en een preview van onze textures in actie.
+          Check out the latest updates and a preview of our textures in action.
         </motion.p>
         <motion.div
           className="max-w-4xl mx-auto rounded-xl overflow-hidden border border-border neon-border-blue"
@@ -33,7 +33,7 @@ const VideoSection = () => {
           <div className="relative w-full" style={{ paddingBottom: "56.25%" }}>
             <iframe
               className="absolute inset-0 w-full h-full"
-              src="https://www.youtube.com/embed/dQw4w9WgXcQ"
+              src="https://www.youtube.com/embed/9uN9U3PjRVk"
               title="420 Clan Showcase"
               allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
               allowFullScreen
