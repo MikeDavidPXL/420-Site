@@ -1,0 +1,36 @@
+[
+  {
+    "version": "1.2.0",
+    "date": "2026-02-20",
+    "title": "Nieuwe Wapen Skins & Bug Fixes",
+    "changes": [
+      "5 nieuwe wapen skins toegevoegd (AK-47, M4, Pistol, SMG, Shotgun)",
+      "Performance verbeteringen voor voertuig liveries",
+      "Bug fix: UI elementen laden nu correct op 1080p",
+      "Kleine textuuraanpassingen voor clan kleding"
+    ]
+  },
+  {
+    "version": "1.1.0",
+    "date": "2026-02-10",
+    "title": "Voertuig Liveries Update",
+    "changes": [
+      "10 nieuwe voertuig liveries toegevoegd",
+      "Custom clan logo op alle voertuigen",
+      "Verbeterde textuurkwaliteit voor sportauto's",
+      "Nieuwe UI overlay voor de minimap"
+    ]
+  },
+  {
+    "version": "1.0.0",
+    "date": "2026-01-28",
+    "title": "Eerste Release",
+    "changes": [
+      "Custom clan kleding pack (15+ items)",
+      "Basis wapen skins (8 wapens)",
+      "Eerste set voertuig liveries (5 voertuigen)",
+      "Custom UI elementen en HUD",
+      "Performance geoptimaliseerd voor alle systemen"
+    ]
+  }
+]
