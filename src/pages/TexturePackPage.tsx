@@ -18,6 +18,9 @@ import {
   Loader2,
   LogOut,
   BookOpen,
+  Users,
+  Menu,
+  X,
 } from "lucide-react";
 import clanLogo from "@/assets/clan-logo.png";
 import heroBanner from "@/assets/420Gif.png";
@@ -52,7 +55,10 @@ const getNavItems = (isStaff: boolean) => {
     { label: "Download", href: "#download" },
     { label: "Installation", href: "/installation", route: true },
   ];
-  if (isStaff) items.push({ label: "Admin Panel", href: "/admin", route: true });
+  if (isStaff) {
+    items.push({ label: "Admin Panel", href: "/admin", route: true });
+    items.push({ label: "Clan List", href: "/clan-list", route: true });
+  }
   return items;
 };
 
@@ -424,6 +430,7 @@ function PackNavbar({
   pendingCount?: number;
 }) {
   const [scrolled, setScrolled] = useState(false);
+  const [mobileOpen, setMobileOpen] = useState(false);
 
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 50);
@@ -453,6 +460,7 @@ function PackNavbar({
           {navItems.map((item) => {
             const isAdmin = item.label === "Admin Panel";
             const isInstall = item.label === "Installation";
+            const isClanList = item.label === "Clan List";
             const cls = `font-body text-sm font-medium hover:text-primary transition-colors duration-200 uppercase tracking-wider ${
               isAdmin ? "text-secondary hover:text-secondary/80" : ""
             }`;
@@ -463,6 +471,7 @@ function PackNavbar({
                 <Link key={item.href} to={item.href} className={`${cls} relative`}>
                   {isAdmin && <Shield className="w-3.5 h-3.5 inline mr-1" />}
                   {isInstall && <BookOpen className="w-3.5 h-3.5 inline mr-1" />}
+                  {isClanList && <Users className="w-3.5 h-3.5 inline mr-1" />}
                   {item.label}
                   {isAdmin && pendingCount > 0 && (
                     <span className="absolute -top-2 -right-4 bg-red-500 text-white text-[10px] font-bold min-w-[18px] h-[18px] flex items-center justify-center rounded-full px-1 animate-pulse">
@@ -494,8 +503,57 @@ function PackNavbar({
           >
             <LogOut className="w-4 h-4" />
           </a>
+          <button
+            type="button"
+            onClick={() => setMobileOpen((open) => !open)}
+            className="md:hidden text-muted-foreground hover:text-foreground transition"
+            aria-label="Toggle navigation"
+          >
+            {mobileOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
+          </button>
         </div>
       </div>
+      {mobileOpen && (
+        <div className="md:hidden border-t border-border/60 bg-background/95 backdrop-blur-md">
+          <div className="px-4 py-4 flex flex-col gap-3">
+            {navItems.map((item) => {
+              const isAdmin = item.label === "Admin Panel";
+              const isInstall = item.label === "Installation";
+              const isClanList = item.label === "Clan List";
+              const cls = `font-body text-sm font-medium uppercase tracking-wider transition-colors duration-200 ${
+                isAdmin ? "text-secondary" : "text-foreground"
+              }`;
+
+              if (item.route) {
+                return (
+                  <Link
+                    key={item.href}
+                    to={item.href}
+                    className={cls}
+                    onClick={() => setMobileOpen(false)}
+                  >
+                    {isAdmin && <Shield className="w-4 h-4 inline mr-2" />}
+                    {isInstall && <BookOpen className="w-4 h-4 inline mr-2" />}
+                    {isClanList && <Users className="w-4 h-4 inline mr-2" />}
+                    {item.label}
+                  </Link>
+                );
+              }
+
+              return (
+                <a
+                  key={item.href}
+                  href={item.href}
+                  className={cls}
+                  onClick={() => setMobileOpen(false)}
+                >
+                  {item.label}
+                </a>
+              );
+            })}
+          </div>
+        </div>
+      )}
     </motion.nav>
   );
 }
