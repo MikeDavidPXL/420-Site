@@ -1,7 +1,16 @@
 // /.netlify/functions/application-submit
 // POST: submit a new application (KOTH player only, not staff/private)
 import type { Handler } from "@netlify/functions";
-import { getSessionFromCookie, discordFetch, supabase, json } from "./shared";
+import {
+  getSessionFromCookie,
+  discordFetch,
+  supabase,
+  json,
+  postChannelMessageRaw,
+  createThreadFromMessage,
+  postThreadMessage,
+  APP_LOG_CHANNEL_ID,
+} from "./shared";
 
 const handler: Handler = async (event) => {
   if (event.httpMethod !== "POST") {
@@ -145,6 +154,84 @@ const handler: Handler = async (event) => {
         previous_status: existing.status,
         new_application_id: data.id,
       },
+    });
+  }
+
+  // ── Discord thread logging ────────────────────────────────
+  let logMessageId: string | null = null;
+  let logThreadId: string | null = null;
+
+  try {
+    // 1. Post parent message in log channel
+    const parentContent = [
+      `📋 **New application submitted**`,
+      `Applicant: <@${session.discord_id}> (${session.username})`,
+      `UID: ${uid}`,
+      `Review: https://420-site.netlify.app/admin`,
+    ].join("\n");
+
+    const msgResult = await postChannelMessageRaw(APP_LOG_CHANNEL_ID, parentContent);
+    if (msgResult.ok && msgResult.id) {
+      logMessageId = msgResult.id;
+
+      // 2. Create thread from parent message
+      const threadName = uid
+        ? `app-${uid}-${session.username}`
+        : `app-${session.discord_id}-${session.username}`;
+
+      const threadResult = await createThreadFromMessage(
+        APP_LOG_CHANNEL_ID,
+        logMessageId,
+        threadName
+      );
+
+      if (threadResult.ok && threadResult.id) {
+        logThreadId = threadResult.id;
+
+        // 3. Post initial thread message
+        await postThreadMessage(
+          logThreadId,
+          `🧵 Thread started. All updates for this application will appear here.`
+        );
+      } else {
+        // Thread creation failed — log error but don't fail the submission
+        console.error("Thread creation failed:", threadResult.error);
+        await supabase.from("audit_log").insert({
+          action: "application_thread_create_failed",
+          target_id: data.id,
+          actor_id: session.discord_id,
+          details: { error: threadResult.error, log_message_id: logMessageId },
+        });
+      }
+    } else {
+      // Parent message failed — log error but don't fail the submission
+      console.error("Log message failed:", msgResult.error);
+      await supabase.from("audit_log").insert({
+        action: "application_log_message_failed",
+        target_id: data.id,
+        actor_id: session.discord_id,
+        details: { error: msgResult.error },
+      });
+    }
+
+    // 4. Save IDs on the application row
+    if (logMessageId || logThreadId) {
+      await supabase
+        .from("applications")
+        .update({
+          log_message_id: logMessageId,
+          log_thread_id: logThreadId,
+        })
+        .eq("id", data.id);
+    }
+  } catch (logErr: any) {
+    // Never fail the submission because of logging
+    console.error("Application log error:", logErr);
+    await supabase.from("audit_log").insert({
+      action: "application_log_error",
+      target_id: data.id,
+      actor_id: session.discord_id,
+      details: { error: logErr?.message || String(logErr) },
     });
   }
 

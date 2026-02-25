@@ -284,6 +284,90 @@ export async function postChannelMessage(
   return res.ok;
 }
 
+// ── Discord channel message (returns message object) ────────
+export async function postChannelMessageRaw(
+  channelId: string,
+  content: string
+): Promise<{ ok: boolean; id?: string; error?: string }> {
+  const res = await fetch(`${DISCORD_API}/channels/${channelId}/messages`, {
+    method: "POST",
+    headers: {
+      Authorization: `Bot ${process.env.DISCORD_BOT_TOKEN}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ content }),
+  });
+  if (!res.ok) {
+    const body = await res.text().catch(() => "");
+    console.error(`postChannelMessageRaw failed: ${res.status}`, body);
+    return { ok: false, error: `${res.status}: ${body}` };
+  }
+  const data = await res.json();
+  return { ok: true, id: data.id };
+}
+
+// ── Create a thread from a message ──────────────────────────
+export async function createThreadFromMessage(
+  channelId: string,
+  messageId: string,
+  name: string,
+  autoArchiveDuration: number = 10080 // 7 days
+): Promise<{ ok: boolean; id?: string; error?: string }> {
+  // Discord thread name max 100 chars
+  const threadName = name.length > 100 ? name.substring(0, 100) : name;
+  const res = await fetch(
+    `${DISCORD_API}/channels/${channelId}/messages/${messageId}/threads`,
+    {
+      method: "POST",
+      headers: {
+        Authorization: `Bot ${process.env.DISCORD_BOT_TOKEN}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        name: threadName,
+        auto_archive_duration: autoArchiveDuration,
+      }),
+    }
+  );
+  if (!res.ok) {
+    const body = await res.text().catch(() => "");
+    console.error(`createThreadFromMessage failed: ${res.status}`, body);
+    return { ok: false, error: `${res.status}: ${body}` };
+  }
+  const data = await res.json();
+  return { ok: true, id: data.id };
+}
+
+// ── Post a message into a thread ────────────────────────────
+export async function postThreadMessage(
+  threadId: string,
+  content: string
+): Promise<{ ok: boolean; id?: string; error?: string }> {
+  // A thread IS a channel in Discord API, so same endpoint
+  return postChannelMessageRaw(threadId, content);
+}
+
+// ── Application log channel ID ──────────────────────────────
+export const APP_LOG_CHANNEL_ID = "1374059564168773863";
+
+// ── Post application log to thread (with fallback) ──────────
+export async function postAppLog(
+  logThreadId: string | null,
+  applicationId: string,
+  content: string
+): Promise<{ ok: boolean; error?: string }> {
+  if (logThreadId) {
+    const result = await postThreadMessage(logThreadId, content);
+    if (result.ok) return { ok: true };
+    // Thread post failed — fall through to fallback
+    console.error(`Thread post failed for app ${applicationId}, falling back to channel`);
+  }
+  // Fallback: post directly in channel with app ID prefix
+  const fallbackContent = `[App ${applicationId.substring(0, 8)}] ${content}`;
+  const result = await postChannelMessageRaw(APP_LOG_CHANNEL_ID, fallbackContent);
+  return { ok: result.ok, error: result.error };
+}
+
 // ── Resolve tokens (opaque, hide discord_id from UI) ────────
 const RESOLVE_TOKEN_SECRET = SECRET; // reuse session secret
 

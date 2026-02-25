@@ -1,6 +1,7 @@
 // /.netlify/functions/admin-review
 // POST: accept or reject an application (staff only)
 // On accept: assign Private role, remove KOTH role, upsert clan_list_members
+// Posts all logs to the application's Discord thread
 import type { Handler } from "@netlify/functions";
 import {
   getSessionFromCookie,
@@ -9,6 +10,7 @@ import {
   json,
   assignRole,
   removeRole,
+  postAppLog,
 } from "./shared";
 
 type ApplicationRow = {
@@ -107,7 +109,7 @@ const handler: Handler = async (event) => {
     return json({ error: "Invalid JSON" }, 400);
   }
 
-  const { application_id, action, note } = body;
+  const { application_id, action, note, deny_reason } = body;
   if (!application_id || !["accept", "reject", "retry_create_clan_member"].includes(action)) {
     return json({ error: "application_id and action (accept|reject|retry_create_clan_member) required" }, 400);
   }
@@ -150,6 +152,15 @@ const handler: Handler = async (event) => {
     });
 
     if (!upsert.ok) {
+      // Log retry failure to thread
+      try {
+        await postAppLog(
+          app.log_thread_id,
+          application_id,
+          `⚠️ **Retry create clan member failed**\nError: ${upsert.error}`
+        );
+      } catch {}
+
       return json(
         {
           error: "Retry create clan member failed",
@@ -159,6 +170,15 @@ const handler: Handler = async (event) => {
         500
       );
     }
+
+    // Log retry success to thread
+    try {
+      await postAppLog(
+        app.log_thread_id,
+        application_id,
+        `✅ **Retry create clan member succeeded**\nClan member ID: ${upsert.clanMemberId}`
+      );
+    } catch {}
 
     return json({
       ok: true,
@@ -209,6 +229,15 @@ const handler: Handler = async (event) => {
         error: upsert.error,
       });
 
+      // Log upsert failure to thread
+      try {
+        await postAppLog(
+          app.log_thread_id,
+          application_id,
+          `⚠️ **Application accepted but clan member creation failed**\nError: ${upsert.error}\nUse "Retry" button to try again.`
+        );
+      } catch {}
+
       await supabase.from("audit_log").insert({
         action: "clan_member_upsert_failed_on_accept",
         target_id: application_id,
@@ -241,7 +270,42 @@ const handler: Handler = async (event) => {
       process.env.DISCORD_KOTH_PLAYER_ROLE_ID!
     );
 
-    // 3. Audit log
+    // 3. Discord thread logging — accept + role swap
+    try {
+      const acceptMsg = [
+        `✅ **Application accepted**`,
+        `Accepted by: <@${session.discord_id}>`,
+        note ? `Note: ${note}` : null,
+      ]
+        .filter(Boolean)
+        .join("\n");
+
+      await postAppLog(app.log_thread_id, application_id, acceptMsg);
+
+      // Role swap result
+      const roleMsg = [
+        `🔄 **Role update**`,
+        `Private added: ${roleAssigned ? "✓" : "✗"}`,
+        `KOTH removed: ${roleRemoved ? "✓" : "✗"}`,
+        !roleAssigned || !roleRemoved
+          ? `⚠️ Role update incomplete — check manually`
+          : null,
+      ]
+        .filter(Boolean)
+        .join("\n");
+
+      await postAppLog(app.log_thread_id, application_id, roleMsg);
+    } catch (logErr: any) {
+      console.error("Accept thread log error:", logErr);
+      await supabase.from("audit_log").insert({
+        action: "application_accept_log_error",
+        target_id: application_id,
+        actor_id: session.discord_id,
+        details: { error: logErr?.message || String(logErr) },
+      });
+    }
+
+    // 4. Audit log
     await supabase.from("audit_log").insert({
       action: "clan_member_created_from_accept",
       target_id: application_id,
@@ -278,6 +342,7 @@ const handler: Handler = async (event) => {
       status: "rejected",
       reviewer_id: session.discord_id,
       reviewer_note: note || null,
+      deny_reason: deny_reason || null,
       denied_at: now,
       denied_by: session.discord_id,
     })
@@ -286,6 +351,28 @@ const handler: Handler = async (event) => {
   if (updateErr) {
     console.error("Reject update error:", updateErr);
     return json({ error: "Failed to update application" }, 500);
+  }
+
+  // Discord thread logging — deny
+  try {
+    const denyMsg = [
+      `❌ **Application denied**`,
+      `Denied by: <@${session.discord_id}>`,
+      deny_reason ? `Reason: ${deny_reason}` : null,
+      note ? `Note: ${note}` : null,
+    ]
+      .filter(Boolean)
+      .join("\n");
+
+    await postAppLog(app.log_thread_id, application_id, denyMsg);
+  } catch (logErr: any) {
+    console.error("Deny thread log error:", logErr);
+    await supabase.from("audit_log").insert({
+      action: "application_deny_log_error",
+      target_id: application_id,
+      actor_id: session.discord_id,
+      details: { error: logErr?.message || String(logErr) },
+    });
   }
 
   // Audit log
