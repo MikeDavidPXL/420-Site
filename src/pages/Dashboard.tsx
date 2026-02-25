@@ -1,12 +1,49 @@
+import { useEffect, useRef, useState } from "react";
 import { motion } from "framer-motion";
 import { useAuth } from "@/context/AuthContext";
-import { ExternalLink, FileText, Loader2, ShieldAlert } from "lucide-react";
+import { ExternalLink, FileText, Loader2, ShieldAlert, RefreshCw } from "lucide-react";
 import { Link, Navigate } from "react-router-dom";
 
-const DISCORD_INVITE = "https://discord.gg/qBpYXRgmcH"; // ← replace
+const DISCORD_INVITE = "https://discord.gg/qBpYXRgmcH";
+const POLL_INTERVAL = 10_000; // 10 seconds
 
 const Dashboard = () => {
-  const { user, loading } = useAuth();
+  const { user, loading, silentRefresh, lastUpdated } = useAuth();
+  const [refreshing, setRefreshing] = useState(false);
+  const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  // ── Auto-poll every 10s (silent, no loading spinner) ────
+  useEffect(() => {
+    // Only poll for users on the dashboard (KOTH users waiting for status)
+    if (loading || !user) return;
+    // Staff/private redirect away, so no need to poll for them
+    if (user.is_staff || user.is_private) return;
+
+    pollRef.current = setInterval(() => {
+      silentRefresh();
+    }, POLL_INTERVAL);
+
+    return () => {
+      if (pollRef.current) clearInterval(pollRef.current);
+    };
+  }, [loading, user, silentRefresh]);
+
+  // ── Refresh on tab focus ────────────────────────────────
+  useEffect(() => {
+    if (loading || !user) return;
+    if (user.is_staff || user.is_private) return;
+
+    const onFocus = () => silentRefresh();
+    window.addEventListener("focus", onFocus);
+    return () => window.removeEventListener("focus", onFocus);
+  }, [loading, user, silentRefresh]);
+
+  // ── Manual refresh handler ──────────────────────────────
+  const handleManualRefresh = async () => {
+    setRefreshing(true);
+    await silentRefresh();
+    setRefreshing(false);
+  };
 
   if (loading) {
     return (
@@ -93,12 +130,17 @@ const Dashboard = () => {
         <GateCard
           icon={<Loader2 className="w-8 h-8 text-yellow-400 animate-spin" />}
           title="Application Pending"
-          description="Your application is being reviewed by staff. Hang tight!"
+          description="Your application is being reviewed by staff. This page updates automatically."
         >
-          <span className="text-yellow-400 font-display text-sm">
+          <span className="text-yellow-400 font-display text-sm block mb-4">
             Submitted{" "}
             {new Date(app.created_at).toLocaleDateString()}
           </span>
+          <StatusFooter
+            lastUpdated={lastUpdated}
+            refreshing={refreshing}
+            onRefresh={handleManualRefresh}
+          />
         </GateCard>
       )}
 
@@ -107,11 +149,16 @@ const Dashboard = () => {
         <GateCard
           icon={<Loader2 className="w-8 h-8 text-green-400 animate-spin" />}
           title="Application Accepted!"
-          description="Your application was accepted. Your role should update shortly — refresh this page."
+          description="Your application was accepted. Your role should update shortly — this page checks automatically."
         >
-          <span className="text-green-400 font-display text-sm">
+          <span className="text-green-400 font-display text-sm block mb-4">
             Accepted! Waiting for role sync...
           </span>
+          <StatusFooter
+            lastUpdated={lastUpdated}
+            refreshing={refreshing}
+            onRefresh={handleManualRefresh}
+          />
         </GateCard>
       )}
 
@@ -134,7 +181,7 @@ const Dashboard = () => {
           )}
           <Link
             to="/apply"
-            className="inline-flex items-center gap-2 bg-primary hover:bg-primary/90 text-primary-foreground font-display font-bold px-8 py-3 rounded-lg transition hover:scale-105"
+            className="inline-flex items-center justify-center gap-2 bg-primary hover:bg-primary/90 text-primary-foreground font-display font-bold px-8 py-3 rounded-lg transition hover:scale-105"
           >
             <FileText className="w-4 h-4" /> Re-Apply
           </Link>
@@ -197,6 +244,42 @@ function GateCard({
       </p>
       {children}
     </motion.div>
+  );
+}
+
+// Subtle refresh indicator + manual button
+function StatusFooter({
+  lastUpdated,
+  refreshing,
+  onRefresh,
+}: {
+  lastUpdated: number | null;
+  refreshing: boolean;
+  onRefresh: () => void;
+}) {
+  const timeAgo = lastUpdated
+    ? `Last checked ${Math.round((Date.now() - lastUpdated) / 1000)}s ago`
+    : "";
+
+  return (
+    <div className="flex items-center justify-center gap-3 text-xs text-muted-foreground mt-2">
+      {refreshing ? (
+        <span className="flex items-center gap-1">
+          <RefreshCw className="w-3 h-3 animate-spin" /> Updating…
+        </span>
+      ) : (
+        <>
+          {timeAgo && <span>{timeAgo}</span>}
+          <button
+            onClick={onRefresh}
+            className="inline-flex items-center gap-1 hover:text-primary transition cursor-pointer"
+            title="Refresh now"
+          >
+            <RefreshCw className="w-3 h-3" /> Refresh
+          </button>
+        </>
+      )}
+    </div>
   );
 }
 
