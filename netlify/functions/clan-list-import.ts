@@ -24,34 +24,140 @@ const MAX_ROWS = 5000;
 const lastImport = new Map<string, number>();
 const IMPORT_COOLDOWN = 60_000;
 
-// ── Column name normalizer ──────────────────────────────────
-const COL_MAP: Record<string, string> = {
-  "discord name": "discord_name",
-  discord_name: "discord_name",
-  "ingame name": "ign",
-  ingame_name: "ign",
-  ign: "ign",
-  uid: "uid",
-  "join date": "join_date",
-  join_date: "join_date",
-  "time in clan": "time_in_clan",
-  "time in clan (days)": "time_in_clan",
-  time_in_clan: "time_in_clan",
-  "role given": "rank_current",
-  role_given: "rank_current",
-  role: "rank_current",
-  rank: "rank_current",
-  status: "status",
-  "needs role updated": "_needs_role_updated",
+// ── Header normalisation ────────────────────────────────────
+/** Canonical key: lowercase, trim, collapse whitespace, strip non-alphanumeric
+ *  except spaces. e.g. "Known as (nickname)" → "known as nickname"           */
+function canonicalKey(raw: string): string {
+  return raw
+    .toLowerCase()
+    .trim()
+    .replace(/[^a-z0-9 ]/g, " ")   // replace special chars with space
+    .replace(/\s+/g, " ")           // collapse multiple spaces
+    .trim();
+}
+
+// Internal field names we care about
+type Field =
+  | "discord_name"
+  | "ign"
+  | "uid"
+  | "join_date"
+  | "time_in_clan"
+  | "rank_current"
+  | "status"
+  | "has_420_tag"
+  | "_needs_role_updated";
+
+/** Map of canonical header aliases → internal field */
+const HEADER_ALIASES: Record<string, Field> = {
+  // discord name
+  "discord name":      "discord_name",
+  "discord":           "discord_name",
+  "discord username":  "discord_name",
+  "username":          "discord_name",
+  "discord_name":      "discord_name",
+
+  // ingame name
+  "ingame name":       "ign",
+  "in game name":      "ign",
+  "in-game name":      "ign",  // after canonical: "in game name"
+  "ign":               "ign",
+  "known as nickname": "ign",
+  "known as":          "ign",
+  "nickname":          "ign",
+
+  // uid
+  "uid":               "uid",
+  "user id":           "uid",
+  "id":                "uid",
+
+  // join date
+  "join date":         "join_date",
+  "joined":            "join_date",
+  "date joined":       "join_date",
+  "join_date":         "join_date",
+
+  // time in clan
+  "time in clan days": "time_in_clan",
+  "time in clan":      "time_in_clan",
+  "days in clan":      "time_in_clan",
+  "time_in_clan_days": "time_in_clan",
+  "time_in_clan":      "time_in_clan",
+
+  // rank
+  "role given":        "rank_current",
+  "role_given":        "rank_current",
+  "role":              "rank_current",
+  "rank":              "rank_current",
+  "current role":      "rank_current",
+
+  // status
+  "status":            "status",
+  "active status":     "status",
+  "activity":          "status",
+
+  // has 420 tag
+  "has 420 tag":       "has_420_tag",
+  "has 420 tag?":      "has_420_tag",  // after canonical: "has 420 tag"
+  "420 tag":           "has_420_tag",
+  "tag":               "has_420_tag",
+
+  // needs role updated (ignored but mapped so it doesn't noise)
+  "needs role updated":"_needs_role_updated",
+  "needs role update": "_needs_role_updated",
+  "needs promotion":   "_needs_role_updated",
+  "promotion due":     "_needs_role_updated",
 };
 
+// Required fields (display name for error messages)
+const REQUIRED_FIELDS: { field: Field; label: string }[] = [
+  { field: "discord_name", label: "Discord Name" },
+  { field: "ign",          label: "Ingame Name (IGN)" },
+  { field: "uid",          label: "UID" },
+  { field: "join_date",    label: "Join Date" },
+];
+
+/**
+ * Build a mapping from original CSV header → internal field.
+ * Returns the mapping + any warnings/errors about missing required columns.
+ */
+function buildHeaderMapping(
+  originalHeaders: string[]
+): {
+  mapping: Map<string, Field>;
+  resolvedLog: Record<string, string>;
+  missingColumns: string[];
+} {
+  const mapping = new Map<string, Field>();
+  const resolvedLog: Record<string, string> = {};
+  const resolvedFields = new Set<Field>();
+
+  for (const origHeader of originalHeaders) {
+    const canonical = canonicalKey(origHeader);
+    const field = HEADER_ALIASES[canonical];
+    if (field) {
+      mapping.set(origHeader, field);
+      resolvedFields.add(field);
+      resolvedLog[field] = origHeader;
+    }
+  }
+
+  const missingColumns = REQUIRED_FIELDS
+    .filter((r) => !resolvedFields.has(r.field))
+    .map((r) => r.label);
+
+  return { mapping, resolvedLog, missingColumns };
+}
+
+/** Normalise a row using the pre-built header mapping */
 function normalizeRow(
-  raw: Record<string, unknown>
+  raw: Record<string, unknown>,
+  headerMapping: Map<string, Field>
 ): Record<string, string | undefined> {
   const out: Record<string, string | undefined> = {};
   for (const [key, val] of Object.entries(raw)) {
-    const mapped = COL_MAP[key.toLowerCase().trim()];
-    if (mapped) out[mapped] = val == null ? undefined : String(val).trim();
+    const field = headerMapping.get(key);
+    if (field) out[field] = val == null ? undefined : String(val).trim();
   }
   return out;
 }
@@ -118,6 +224,26 @@ const handler: Handler = async (event) => {
     return json({ error: `Maximum ${MAX_ROWS} rows allowed` }, 400);
   }
 
+  // ── Build header mapping from first row's keys ────────────
+  const originalHeaders = Object.keys(rows[0]);
+  const { mapping: headerMapping, resolvedLog, missingColumns } =
+    buildHeaderMapping(originalHeaders);
+
+  console.log("[clan-list-import] Original headers:", originalHeaders);
+  console.log("[clan-list-import] Canonical headers:", originalHeaders.map(canonicalKey));
+  console.log("[clan-list-import] Resolved mapping:", resolvedLog);
+
+  // If required columns are missing, return one clear error
+  if (missingColumns.length > 0) {
+    return json(
+      {
+        error: `Missing required column(s): ${missingColumns.join(", ")}. Found headers: ${originalHeaders.map((h) => `"${h}"`).join(", ")}`,
+        resolved_mapping: resolvedLog,
+      },
+      400
+    );
+  }
+
   // ── Fetch guild members for discord_id resolution ─────────
   let guildMembers: GuildMember[] = [];
   try {
@@ -134,14 +260,14 @@ const handler: Handler = async (event) => {
   const errors: string[] = [];
 
   for (let i = 0; i < rows.length; i++) {
-    const raw = normalizeRow(rows[i]);
+    const raw = normalizeRow(rows[i], headerMapping);
 
     if (!raw.discord_name) {
-      errors.push(`Row ${i + 1}: missing Discord name`);
+      errors.push(`Row ${i + 1}: empty Discord Name`);
       continue;
     }
     if (!raw.ign) {
-      errors.push(`Row ${i + 1}: missing Ingame name`);
+      errors.push(`Row ${i + 1}: empty Ingame Name`);
       continue;
     }
     if (!raw.uid) {
@@ -165,20 +291,29 @@ const handler: Handler = async (event) => {
     let needsResolution = false;
     let detectedTag = false;
 
+    // Check CSV has_420_tag value as fallback
+    const csvTag = raw.has_420_tag?.toLowerCase();
+    const csvTagValue = csvTag === "true" || csvTag === "yes" || csvTag === "1";
+
     if (guildMembers.length > 0) {
       const resolved = resolveDiscordId(raw.discord_name, guildMembers);
       if (resolved.id) {
         discordId = resolved.id;
-        // Check 420 tag
+        // Check 420 tag from actual Discord name
         const gm = guildMembers.find((m) => m.user.id === resolved.id);
         if (gm) detectedTag = has420InName(gm);
+        // Fallback to CSV value if Discord detection didn't find tag
+        if (!detectedTag && csvTagValue) detectedTag = true;
       } else {
         needsResolution = true;
         unresolved++;
+        // Use CSV tag value when we can't resolve
+        detectedTag = csvTagValue;
       }
     } else {
       needsResolution = true;
       unresolved++;
+      detectedTag = csvTagValue;
     }
 
     // Calculate time & rank fields
@@ -257,6 +392,9 @@ const handler: Handler = async (event) => {
       imported++;
     }
   }
+
+  // ── Debug summary ──────────────────────────────────────────
+  console.log(`[clan-list-import] Imported: ${imported}, Updated: ${updated}, Unresolved: ${unresolved}, Errors: ${errors.length}, Total rows: ${rows.length}`);
 
   // ── Audit log ─────────────────────────────────────────────
   await supabase.from("audit_log").insert({
