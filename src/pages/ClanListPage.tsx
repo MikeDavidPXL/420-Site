@@ -139,6 +139,15 @@ const ClanListPage = () => {
   const [saveUnresolvedAllowed, setSaveUnresolvedAllowed] = useState(false);
   const [uiError, setUiError] = useState<string | null>(null);
 
+  // ── Manual unresolved resolver ──────────────────────────
+  const [resolveTargetId, setResolveTargetId] = useState<string | null>(null);
+  const [resolveQuery, setResolveQuery] = useState("");
+  const [resolveTargetToken, setResolveTargetToken] = useState("");
+  const [resolveTargetCandidates, setResolveTargetCandidates] = useState<ResolveCandidate[]>([]);
+  const [resolveLoading, setResolveLoading] = useState(false);
+  const [resolveSaving, setResolveSaving] = useState(false);
+  const [resolveError, setResolveError] = useState<string | null>(null);
+
   // ── Inline editing ──────────────────────────────────────
   const [savingField, setSavingField] = useState<string | null>(null);
 
@@ -429,6 +438,91 @@ const ClanListPage = () => {
     }
   };
 
+  const searchResolveCandidates = async (query: string) => {
+    if (!query.trim()) {
+      setResolveError("Discord name is required to search.");
+      return;
+    }
+    setResolveLoading(true);
+    setResolveError(null);
+    try {
+      const q = encodeURIComponent(query.trim());
+      const res = await fetch(`/.netlify/functions/guild-member-search?q=${q}`);
+      const data = await res.json();
+      if (!res.ok) {
+        setResolveError(data?.error || "Failed to search Discord members.");
+        return;
+      }
+      const candidates: ResolveCandidate[] = data?.candidates ?? [];
+      setResolveTargetCandidates(candidates);
+      if (candidates.length === 1) {
+        setResolveTargetToken(candidates[0].resolve_token);
+      }
+      if (candidates.length === 0) {
+        setResolveError("No Discord user found for this name.");
+      }
+    } catch {
+      setResolveError("Network error while searching Discord members.");
+    } finally {
+      setResolveLoading(false);
+    }
+  };
+
+  const openResolveForMember = async (memberId: string, discordName: string) => {
+    setResolveTargetId(memberId);
+    setResolveQuery(discordName);
+    setResolveTargetToken("");
+    setResolveTargetCandidates([]);
+    setResolveError(null);
+    await searchResolveCandidates(discordName);
+  };
+
+  const applyResolveForMember = async () => {
+    if (!resolveTargetId || !resolveTargetToken) {
+      setResolveError("Select a Discord match first.");
+      return;
+    }
+    setResolveSaving(true);
+    setResolveError(null);
+    try {
+      const res = await fetch("/.netlify/functions/clan-member-resolve", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          member_row_id: resolveTargetId,
+          resolve_token: resolveTargetToken,
+        }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setResolveError(data?.error || "Failed to resolve member.");
+        return;
+      }
+
+      setMembers((prev) =>
+        prev.map((m) =>
+          m.id === resolveTargetId
+            ? {
+                ...m,
+                needs_resolution: false,
+              }
+            : m
+        )
+      );
+
+      setResolveTargetId(null);
+      setResolveQuery("");
+      setResolveTargetToken("");
+      setResolveTargetCandidates([]);
+      setResolveError(null);
+      fetchMembers(page, debouncedSearch);
+    } catch {
+      setResolveError("Network error while resolving member.");
+    } finally {
+      setResolveSaving(false);
+    }
+  };
+
   // ── Preview promotions ──────────────────────────────────
   const previewPromotions = async () => {
     setPromoLoading(true);
@@ -626,6 +720,72 @@ const ClanListPage = () => {
             {bulkResult && (
               <span className="text-xs text-muted-foreground">{bulkResult}</span>
             )}
+          </div>
+        )}
+
+        {resolveTargetId && (
+          <div className="bg-card border border-yellow-400/30 rounded-xl p-4 space-y-3">
+            <div className="flex items-center justify-between gap-3">
+              <h3 className="font-display font-bold text-yellow-400 text-sm">
+                Resolve Unresolved Member
+              </h3>
+              <button
+                onClick={() => {
+                  setResolveTargetId(null);
+                  setResolveTargetCandidates([]);
+                  setResolveTargetToken("");
+                  setResolveError(null);
+                }}
+                className="text-muted-foreground hover:text-foreground"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div className="flex flex-wrap items-center gap-2">
+              <input
+                value={resolveQuery}
+                onChange={(e) => setResolveQuery(e.target.value)}
+                className="flex-1 min-w-[220px] bg-muted border border-border rounded-lg px-3 py-2 text-sm text-foreground focus:ring-2 focus:ring-secondary/50 focus:outline-none"
+                placeholder="Search Discord name"
+              />
+              <button
+                onClick={() => searchResolveCandidates(resolveQuery)}
+                disabled={resolveLoading || !resolveQuery.trim()}
+                className="inline-flex items-center gap-2 border border-secondary/40 text-secondary hover:bg-secondary/10 font-display font-bold px-4 py-2 rounded-lg transition disabled:opacity-50"
+              >
+                {resolveLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Search className="w-4 h-4" />}
+                Find
+              </button>
+            </div>
+
+            {resolveTargetCandidates.length > 0 && (
+              <select
+                value={resolveTargetToken}
+                onChange={(e) => setResolveTargetToken(e.target.value)}
+                className="w-full bg-muted border border-border rounded-lg px-3 py-2 text-sm text-foreground focus:ring-2 focus:ring-secondary/50 focus:outline-none"
+              >
+                <option value="">Choose a Discord user...</option>
+                {resolveTargetCandidates.map((c, i) => (
+                  <option key={i} value={c.resolve_token}>
+                    {c.label} {c.sublabel}
+                  </option>
+                ))}
+              </select>
+            )}
+
+            {resolveError && <p className="text-sm text-destructive">{resolveError}</p>}
+
+            <div className="flex items-center gap-2">
+              <button
+                onClick={applyResolveForMember}
+                disabled={resolveSaving || !resolveTargetToken}
+                className="inline-flex items-center gap-2 bg-secondary hover:bg-secondary/90 text-secondary-foreground font-display font-bold px-4 py-2 rounded-lg transition disabled:opacity-50"
+              >
+                {resolveSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Check className="w-4 h-4" />}
+                Save Resolve
+              </button>
+            </div>
           </div>
         )}
 
@@ -1075,6 +1235,15 @@ const ClanListPage = () => {
                                 <Check className="w-3 h-3 inline" />
                               </span>
                             )}
+                            {m.needs_resolution && (
+                              <button
+                                onClick={() => openResolveForMember(m.id, m.discord_name)}
+                                className="text-yellow-400 hover:text-yellow-300 transition p-0.5"
+                                title="Resolve member"
+                              >
+                                <Search className="w-3.5 h-3.5" />
+                              </button>
+                            )}
                             <button
                               onClick={() => deleteMember(m.id)}
                               className="text-red-400 hover:text-red-300 transition p-0.5"
@@ -1173,6 +1342,14 @@ const ClanListPage = () => {
                     </select>
                     {savingField === m.id && (
                       <Loader2 className="w-3 h-3 animate-spin text-secondary" />
+                    )}
+                    {m.needs_resolution && (
+                      <button
+                        onClick={() => openResolveForMember(m.id, m.discord_name)}
+                        className="text-xs border border-yellow-400/40 text-yellow-400 hover:bg-yellow-400/10 px-2 py-1 rounded font-display font-bold"
+                      >
+                        Resolve
+                      </button>
                     )}
                   </div>
                 </div>
