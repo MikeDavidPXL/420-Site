@@ -19,6 +19,7 @@ import {
   AlertTriangle,
   Zap,
   Check,
+  Trash2,
 } from "lucide-react";
 import * as XLSX from "xlsx";
 import clanLogo from "@/assets/clan-logo.png";
@@ -285,6 +286,25 @@ const ClanListPage = () => {
         setMembers((prev) =>
           prev.map((m) => (m.id === id ? { ...m, ...member } : m))
         );
+      }
+    } finally {
+      setSavingField(null);
+    }
+  };
+
+  // ── Delete member ──────────────────────────────
+  const deleteMember = async (id: string) => {
+    if (!confirm("Remove this member from the clan list?")) return;
+    setSavingField(id);
+    try {
+      const res = await fetch(
+        `/.netlify/functions/clan-list-member-delete?id=${id}`,
+        { method: "DELETE" }
+      );
+      if (res.ok) {
+        setMembers((prev) => prev.filter((m) => m.id !== id));
+      } else {
+        alert("Failed to delete member.");
       }
     } finally {
       setSavingField(null);
@@ -572,6 +592,17 @@ const ClanListPage = () => {
                       <option value="active">Active</option>
                       <option value="inactive">Inactive</option>
                     </select>
+                    {savingField === m.id ? (
+                      <Loader2 className="w-3 h-3 animate-spin text-secondary" />
+                    ) : (
+                      <button
+                        onClick={() => deleteMember(m.id)}
+                        className="text-red-400 hover:text-red-300 transition"
+                        title="Delete member"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    )}
                   </div>
                   <div>
                     <label className="text-xs text-muted-foreground mb-1 block">
@@ -832,14 +863,25 @@ const ClanListPage = () => {
                       <td className="px-3 py-2.5 text-center">
                         {savingField === m.id ? (
                           <Loader2 className="w-3 h-3 animate-spin text-secondary mx-auto" />
-                        ) : m.promote_reason ? (
-                          <span
-                            className="text-xs text-green-400 cursor-help"
-                            title={m.promote_reason}
-                          >
-                            <Check className="w-3 h-3 inline" />
-                          </span>
-                        ) : null}
+                        ) : (
+                          <div className="flex items-center justify-center gap-1.5">
+                            {m.promote_reason && (
+                              <span
+                                className="text-xs text-green-400 cursor-help"
+                                title={m.promote_reason}
+                              >
+                                <Check className="w-3 h-3 inline" />
+                              </span>
+                            )}
+                            <button
+                              onClick={() => deleteMember(m.id)}
+                              className="text-red-400 hover:text-red-300 transition p-0.5"
+                              title="Delete member"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
+                        )}
                       </td>
                     </tr>
                   ))}
