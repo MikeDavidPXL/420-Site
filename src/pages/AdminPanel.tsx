@@ -1,6 +1,7 @@
 // Admin Panel — standalone page for staff only
 // Archive / restore support, expandable application cards
-import { useEffect, useState, useCallback } from "react";
+// Auto-polls every 10s for new applications
+import { useEffect, useState, useCallback, useRef } from "react";
 import { motion } from "framer-motion";
 import { useAuth } from "@/context/AuthContext";
 import { Navigate, Link } from "react-router-dom";
@@ -18,6 +19,8 @@ import {
   ArchiveRestore,
 } from "lucide-react";
 import clanLogo from "@/assets/clan-logo.png";
+
+const POLL_INTERVAL = 10_000; // 10 seconds
 
 // ── Types ─────────────────────────────────────────────────
 interface AdminApp {
@@ -58,8 +61,9 @@ const AdminPanel = () => {
   const [actionLoading, setActionLoading] = useState<string | null>(null);
   const [note, setNote] = useState("");
 
-  const fetchApps = useCallback(async () => {
-    setLoading(true);
+  // ── Fetch (silent = no loading spinner, used by polling) ──
+  const fetchApps = useCallback(async (silent = false) => {
+    if (!silent) setLoading(true);
     try {
       const params = new URLSearchParams();
       if (filter !== "all") params.set("status", filter);
@@ -69,14 +73,31 @@ const AdminPanel = () => {
       const data = await res.json();
       setApps(data.applications ?? []);
     } catch {
-      setApps([]);
+      // silent fail on poll, don't clear list
+      if (!silent) setApps([]);
     } finally {
-      setLoading(false);
+      if (!silent) setLoading(false);
     }
   }, [filter, showArchived]);
 
+  // Initial fetch
   useEffect(() => {
     if (user?.is_staff) fetchApps();
+  }, [user, fetchApps]);
+
+  // ── Auto-poll every 10s (silent, no spinner) ────────────
+  const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  useEffect(() => {
+    if (!user?.is_staff) return;
+
+    pollRef.current = setInterval(() => {
+      fetchApps(true);
+    }, POLL_INTERVAL);
+
+    return () => {
+      if (pollRef.current) clearInterval(pollRef.current);
+    };
   }, [user, fetchApps]);
 
   const review = async (appId: string, action: "accept" | "reject") => {

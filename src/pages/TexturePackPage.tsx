@@ -1,6 +1,6 @@
 // Pack page — restored old look with full section layout
 // Staff sees admin panel link in navbar; private/staff both see this page
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useState, useRef, useCallback } from "react";
 import { motion, useInView } from "framer-motion";
 import { useAuth } from "@/context/AuthContext";
 import { Navigate, Link } from "react-router-dom";
@@ -59,11 +59,14 @@ const getNavItems = (isStaff: boolean) => {
 // ══════════════════════════════════════════════════════════
 //  MAIN COMPONENT
 // ══════════════════════════════════════════════════════════
+const POLL_INTERVAL = 10_000; // 10s
+
 const TexturePackPage = () => {
   const { user, loading } = useAuth();
   const [changelog, setChangelog] = useState<ChangelogEntry[]>([]);
   const [latestVersion, setLatestVersion] = useState("1.2.0");
   const [fileSize, setFileSize] = useState("601.6 MB");
+  const [pendingCount, setPendingCount] = useState(0);
 
   useEffect(() => {
     fetch("/changelog.json")
@@ -77,6 +80,24 @@ const TexturePackPage = () => {
       })
       .catch(console.error);
   }, []);
+
+  // ── Pending count polling (staff only) ──────────────────
+  const fetchPendingCount = useCallback(async () => {
+    try {
+      const res = await fetch("/.netlify/functions/admin-pending-count");
+      if (res.ok) {
+        const data = await res.json();
+        setPendingCount(data.pending ?? 0);
+      }
+    } catch { /* silent */ }
+  }, []);
+
+  useEffect(() => {
+    if (!user?.is_staff) return;
+    fetchPendingCount();
+    const id = setInterval(fetchPendingCount, POLL_INTERVAL);
+    return () => clearInterval(id);
+  }, [user, fetchPendingCount]);
 
   // Guard: must be logged in + have private or staff role
   if (!loading && (!user || (!user.is_private && !user.is_staff))) {
@@ -96,7 +117,7 @@ const TexturePackPage = () => {
   return (
     <div className="min-h-screen bg-background">
       {/* ── Navbar ────────────────────────────────────────── */}
-      <PackNavbar navItems={navItems} user={user!} />
+      <PackNavbar navItems={navItems} user={user!} pendingCount={pendingCount} />
 
       {/* ── Hero Section ─────────────────────────────────── */}
       <section id="hero" className="relative min-h-screen flex items-center justify-center overflow-hidden">
@@ -396,9 +417,11 @@ const TexturePackPage = () => {
 function PackNavbar({
   navItems,
   user,
+  pendingCount = 0,
 }: {
   navItems: { label: string; href: string; route?: boolean }[];
   user: { avatar: string | null; username: string; is_staff: boolean };
+  pendingCount?: number;
 }) {
   const [scrolled, setScrolled] = useState(false);
 
@@ -437,10 +460,15 @@ function PackNavbar({
             // Route links use React Router <Link>
             if (item.route) {
               return (
-                <Link key={item.href} to={item.href} className={cls}>
+                <Link key={item.href} to={item.href} className={`${cls} relative`}>
                   {isAdmin && <Shield className="w-3.5 h-3.5 inline mr-1" />}
                   {isInstall && <BookOpen className="w-3.5 h-3.5 inline mr-1" />}
                   {item.label}
+                  {isAdmin && pendingCount > 0 && (
+                    <span className="absolute -top-2 -right-4 bg-red-500 text-white text-[10px] font-bold min-w-[18px] h-[18px] flex items-center justify-center rounded-full px-1 animate-pulse">
+                      {pendingCount > 99 ? "99+" : pendingCount}
+                    </span>
+                  )}
                 </Link>
               );
             }
