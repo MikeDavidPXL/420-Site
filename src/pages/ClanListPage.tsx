@@ -1113,14 +1113,14 @@ const ClanListPage = () => {
 
         {/* ── Search + filters ── */}
         <div className="flex flex-wrap gap-3 items-center">
-          <div className="flex-1 min-w-[200px] relative">
+          <div className="relative w-full sm:w-auto sm:min-w-[220px] sm:max-w-[280px]">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
             <input
               type="text"
               value={search}
               placeholder="Search by name, IGN, or UID..."
               onChange={(e) => handleSearchChange(e.target.value)}
-              className="w-full bg-muted border border-border rounded-lg pl-9 pr-4 py-2.5 text-sm text-foreground placeholder:text-muted-foreground/50 focus:outline-none focus:ring-2 focus:ring-secondary/50 transition"
+              className="w-full bg-muted border border-border rounded-lg pl-9 pr-4 py-2.5 text-sm text-foreground placeholder:text-muted-foreground/50 focus:outline-none focus:border-border transition"
             />
           </div>
           <select
@@ -1129,7 +1129,7 @@ const ClanListPage = () => {
               setStatusFilter(e.target.value);
               setPage(1);
             }}
-            className="bg-muted border border-border rounded-lg px-3 py-2.5 text-sm text-foreground focus:ring-2 focus:ring-secondary/50 focus:outline-none"
+            className="flex-1 sm:flex-none sm:w-[130px] bg-muted border border-border rounded-lg px-3 py-2.5 text-sm text-foreground focus:outline-none"
           >
             <option value="">All Status</option>
             <option value="active">Active</option>
@@ -1141,7 +1141,7 @@ const ClanListPage = () => {
               setTagFilter(e.target.value);
               setPage(1);
             }}
-            className="bg-muted border border-border rounded-lg px-3 py-2.5 text-sm text-foreground focus:ring-2 focus:ring-secondary/50 focus:outline-none"
+            className="flex-1 sm:flex-none sm:w-[130px] bg-muted border border-border rounded-lg px-3 py-2.5 text-sm text-foreground focus:outline-none"
           >
             <option value="">All Tags</option>
             <option value="true">Has 420 Tag</option>
@@ -1153,7 +1153,7 @@ const ClanListPage = () => {
               setPromoFilter(e.target.value);
               setPage(1);
             }}
-            className="bg-muted border border-border rounded-lg px-3 py-2.5 text-sm text-foreground focus:ring-2 focus:ring-secondary/50 focus:outline-none"
+            className="flex-1 sm:flex-none sm:w-[145px] bg-muted border border-border rounded-lg px-3 py-2.5 text-sm text-foreground focus:outline-none"
           >
             <option value="">All Promotion</option>
             <option value="true">Promotion Due</option>
