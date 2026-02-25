@@ -151,6 +151,10 @@ const ClanListPage = () => {
   const [promoResult, setPromoResult] = useState<string | null>(null);
   const [showForceConfirm, setShowForceConfirm] = useState(false);
 
+  // ── Bulk resolve ────────────────────────────────────────
+  const [bulkResolving, setBulkResolving] = useState(false);
+  const [bulkResult, setBulkResult] = useState<string | null>(null);
+
   // ── Fetch members ───────────────────────────────────────
   const fetchMembers = useCallback(
     async (pg: number, q: string) => {
@@ -198,6 +202,30 @@ const ClanListPage = () => {
       setDebouncedSearch(val);
       setPage(1);
     }, 400);
+  };
+
+  // ── Bulk resolve handler ────────────────────────────────
+  const handleBulkResolve = async () => {
+    setBulkResolving(true);
+    setBulkResult(null);
+    try {
+      const res = await fetch("/.netlify/functions/clan-list-bulk-resolve", {
+        method: "POST",
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setBulkResult(data?.error || "Bulk resolve failed.");
+        return;
+      }
+      setBulkResult(
+        `Done! ${data.resolved} resolved, ${data.ambiguous} ambiguous, ${data.not_found} not found, ${data.skipped} skipped.`
+      );
+      fetchMembers(page, debouncedSearch);
+    } catch {
+      setBulkResult("Network error during bulk resolve.");
+    } finally {
+      setBulkResolving(false);
+    }
   };
 
   // ── CSV upload handler ──────────────────────────────────
@@ -579,6 +607,27 @@ const ClanListPage = () => {
             )}
           </div>
         </div>
+
+        {/* ── Bulk resolve ── */}
+        {unresolvedCount > 0 && (
+          <div className="flex flex-wrap items-center gap-3">
+            <button
+              onClick={handleBulkResolve}
+              disabled={bulkResolving}
+              className="inline-flex items-center gap-2 border border-yellow-400/40 text-yellow-400 hover:bg-yellow-400/10 font-display font-bold px-5 py-2.5 rounded-lg transition disabled:opacity-50"
+            >
+              {bulkResolving ? (
+                <Loader2 className="w-4 h-4 animate-spin" />
+              ) : (
+                <Search className="w-4 h-4" />
+              )}
+              {bulkResolving ? "Resolving..." : "Bulk Resolve Unresolved"}
+            </button>
+            {bulkResult && (
+              <span className="text-xs text-muted-foreground">{bulkResult}</span>
+            )}
+          </div>
+        )}
 
         {/* ── Upload result ── */}
         {uploadError && (
