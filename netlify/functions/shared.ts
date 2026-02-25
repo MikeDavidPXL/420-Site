@@ -67,6 +67,20 @@ export async function assignRole(userId: string, roleId: string) {
   return res.ok;
 }
 
+export async function removeRole(userId: string, roleId: string) {
+  const res = await fetch(
+    `${DISCORD_API}/guilds/${process.env.DISCORD_GUILD_ID}/members/${userId}/roles/${roleId}`,
+    {
+      method: "DELETE",
+      headers: {
+        Authorization: `Bot ${process.env.DISCORD_BOT_TOKEN}`,
+        "Content-Type": "application/json",
+      },
+    }
+  );
+  return res.ok;
+}
+
 // ── Response helpers ────────────────────────────────────────
 export function json(body: unknown, status = 200, extraHeaders: Record<string, string> = {}) {
   return {

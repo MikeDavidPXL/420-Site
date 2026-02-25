@@ -7,6 +7,7 @@ import {
   supabase,
   json,
   assignRole,
+  removeRole,
 } from "./shared";
 
 const handler: Handler = async (event) => {
@@ -69,12 +70,17 @@ const handler: Handler = async (event) => {
     return json({ error: "Failed to update application" }, 500);
   }
 
-  // On accept → assign Discord role
+  // On accept → assign Private role and remove KOTH role
   let roleAssigned = false;
+  let roleRemoved = false;
   if (action === "accept") {
     roleAssigned = await assignRole(
       app.discord_id,
       process.env.DISCORD_MEMBER_ROLE_ID!
+    );
+    roleRemoved = await removeRole(
+      app.discord_id,
+      process.env.DISCORD_KOTH_PLAYER_ROLE_ID!
     );
   }
 
@@ -83,10 +89,19 @@ const handler: Handler = async (event) => {
     action: `application_${newStatus}`,
     target_id: application_id,
     actor_id: session.discord_id,
-    details: { note: note || null, role_assigned: roleAssigned },
+    details: {
+      note: note || null,
+      role_assigned: roleAssigned,
+      role_removed: roleRemoved,
+    },
   });
 
-  return json({ ok: true, status: newStatus, role_assigned: roleAssigned });
+  return json({
+    ok: true,
+    status: newStatus,
+    role_assigned: roleAssigned,
+    role_removed: roleRemoved,
+  });
 };
 
 export { handler };

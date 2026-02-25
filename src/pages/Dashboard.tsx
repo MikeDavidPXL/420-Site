@@ -3,7 +3,7 @@ import { useAuth } from "@/context/AuthContext";
 import { ExternalLink, FileText, Loader2, ShieldAlert } from "lucide-react";
 import { Link, Navigate } from "react-router-dom";
 
-const DISCORD_INVITE = "https://discord.gg/YOUR_INVITE_LINK"; // ← replace
+const DISCORD_INVITE = "https://discord.gg/qBpYXRgmcH"; // ← replace
 
 const Dashboard = () => {
   const { user, loading } = useAuth();
