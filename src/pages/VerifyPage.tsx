@@ -64,15 +64,23 @@ const VerifyPage = () => {
           setCaptchaToken(token);
           setError(null);
         },
-        "error-callback": () => {
+        "error-callback": (errorCode: string) => {
           setCaptchaToken(null);
-          setError("Captcha failed to load. Please refresh the page.");
+          console.error("[Turnstile] error-callback fired:", errorCode);
+          // Don't treat interactive-timeout as fatal — just let user retry
+          if (errorCode === "110200") {
+            setError("Captcha timed out. Please try again.");
+          } else {
+            setError(`Captcha error (${errorCode || "unknown"}). Please refresh the page.`);
+          }
         },
         "expired-callback": () => {
           setCaptchaToken(null);
           setError("Captcha expired. Please complete it again.");
         },
         theme: "dark",
+        retry: "auto",
+        "retry-interval": 2000,
       });
       setWidgetRendered(true);
     } catch {
