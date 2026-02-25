@@ -34,27 +34,35 @@ const handler: Handler = async (event) => {
     return json({ error: "You must verify in Discord first to get KOTH Player role" }, 403);
   }
 
+  let body: any;
+  try {
+    body = JSON.parse(event.body || "{}");
+  } catch {
+    return json({ error: "Invalid JSON" }, 400);
+  }
+
+  const override = body.override === true;
+
   // Check for existing pending/accepted application
   const { data: existing } = await supabase
     .from("applications")
     .select("id, status")
     .eq("discord_id", session.discord_id)
     .in("status", ["pending", "accepted"])
+    .order("created_at", { ascending: false })
     .limit(1)
     .maybeSingle();
 
-  if (existing) {
+  if (existing && !override) {
+    const code = existing.status === "accepted" ? "ALREADY_ACCEPTED" : "ALREADY_PENDING";
     return json(
-      { error: `You already have a ${existing.status} application` },
+      {
+        error: `You already have a ${existing.status} application.`,
+        code,
+        existing_id: existing.id,
+      },
       409
     );
-  }
-
-  let body: any;
-  try {
-    body = JSON.parse(event.body || "{}");
-  } catch {
-    return json({ error: "Invalid JSON" }, 400);
   }
 
   const {
@@ -115,6 +123,20 @@ const handler: Handler = async (event) => {
   if (error) {
     console.error("Insert error:", error);
     return json({ error: "Failed to submit application" }, 500);
+  }
+
+  // If this was an override reapply, log it
+  if (existing && override) {
+    await supabase.from("audit_log").insert({
+      action: "application_reapply",
+      target_id: data.id,
+      actor_id: session.discord_id,
+      details: {
+        previous_application_id: existing.id,
+        previous_status: existing.status,
+        new_application_id: data.id,
+      },
+    });
   }
 
   return json({ ok: true, application: data }, 201);

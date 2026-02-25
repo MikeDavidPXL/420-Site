@@ -24,6 +24,7 @@ const ApplicationForm = () => {
   });
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [confirmOverride, setConfirmOverride] = useState<string | null>(null);
 
   // Guard: Discord roles are the truth for access.
   // staff / private → pack page, no session → login, no koth → dashboard
@@ -42,20 +43,24 @@ const ApplicationForm = () => {
   const handle = (field: string, value: string | boolean) =>
     setForm((prev) => ({ ...prev, [field]: value }));
 
-  const submit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const doSubmit = async (override = false) => {
     setError(null);
+    setConfirmOverride(null);
     setSubmitting(true);
 
     try {
       const res = await fetch("/.netlify/functions/application-submit", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(form),
+        body: JSON.stringify({ ...form, override }),
       });
       const data = await res.json();
 
       if (!res.ok) {
+        if (data.code === "ALREADY_ACCEPTED" || data.code === "ALREADY_PENDING") {
+          setConfirmOverride(data.code);
+          return;
+        }
         setError(data.error || "Something went wrong");
         return;
       }
@@ -67,6 +72,11 @@ const ApplicationForm = () => {
     } finally {
       setSubmitting(false);
     }
+  };
+
+  const submit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    doSubmit(false);
   };
 
   if (!user) return null; // should never reach here due to guards above
@@ -90,6 +100,37 @@ const ApplicationForm = () => {
           <h1 className="font-display text-2xl font-bold mb-6 neon-text-purple text-secondary text-center">
             Clan Application
           </h1>
+
+          {/* Confirm override dialog */}
+          {confirmOverride && (
+            <div className="bg-yellow-500/10 border border-yellow-500/30 rounded-lg p-4 mb-6 text-center">
+              <p className="text-sm text-yellow-300 font-display font-bold mb-1">
+                {confirmOverride === "ALREADY_ACCEPTED"
+                  ? "You already have an accepted application."
+                  : "You already have a pending application."}
+              </p>
+              <p className="text-xs text-muted-foreground mb-4">
+                Do you want to submit a new application anyway? Your previous one will remain in the system.
+              </p>
+              <div className="flex gap-3 justify-center">
+                <button
+                  type="button"
+                  onClick={() => setConfirmOverride(null)}
+                  className="px-5 py-2 rounded-lg border border-border text-sm font-display text-muted-foreground hover:text-foreground transition"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={() => doSubmit(true)}
+                  disabled={submitting}
+                  className="px-5 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-display font-bold hover:bg-primary/90 transition disabled:opacity-50"
+                >
+                  {submitting ? <Loader2 className="w-4 h-4 animate-spin mx-auto" /> : "Send anyway"}
+                </button>
+              </div>
+            </div>
+          )}
 
           {error && (
             <div className="bg-destructive/10 border border-destructive/30 rounded-lg p-3 mb-6 text-sm text-destructive text-center">
