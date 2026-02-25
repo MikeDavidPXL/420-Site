@@ -429,8 +429,8 @@ const AdminPanel = () => {
           ))}
         </div>
 
-        {/* Show archived toggle + Archive All button + result count */}
-        <div className="flex items-center justify-between mb-6 flex-wrap gap-3">
+        {/* Show archived toggle + result count */}
+        <div className="flex items-center justify-between mb-4">
           <label className="flex items-center gap-2 text-sm text-muted-foreground cursor-pointer select-none">
             <input
               type="checkbox"
@@ -441,22 +441,23 @@ const AdminPanel = () => {
             <Archive className="w-4 h-4" />
             Show archived
           </label>
-
-          {/* Archive All button — only visible on "all" tab */}
-          {filter === "all" && user?.is_staff && (
-            <button
-              onClick={() => setArchiveAllModalOpen(true)}
-              className="flex items-center gap-2 px-3 py-1.5 text-sm font-display font-bold border border-purple-500/50 text-purple-400 hover:bg-purple-500/10 hover:border-purple-500 rounded-lg transition"
-            >
-              <Trash2 className="w-4 h-4" />
-              Archive All
-            </button>
-          )}
-
           <span className="text-sm text-muted-foreground">
             {apps.length} result{apps.length !== 1 ? "s" : ""}
           </span>
         </div>
+
+        {/* Archive All button — centered, only visible on "all" tab */}
+        {filter === "all" && user?.is_staff && (
+          <div className="flex justify-center mb-6">
+            <button
+              onClick={() => setArchiveAllModalOpen(true)}
+              className="flex items-center gap-2 px-4 py-2 text-sm font-display font-bold border border-purple-500/50 text-purple-400 hover:bg-purple-500/10 hover:border-purple-500 rounded-lg transition"
+            >
+              <Trash2 className="w-4 h-4" />
+              Archive All
+            </button>
+          </div>
+        )}
 
         {/* Archive All Confirmation Modal */}
         {archiveAllModalOpen && (

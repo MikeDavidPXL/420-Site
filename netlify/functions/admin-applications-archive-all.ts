@@ -96,13 +96,13 @@ const handler: Handler = async (event) => {
     details: { archived_count: archivedCount, reason },
   });
 
-  // Discord log (with staff ping)
+  // Discord log (no ping, just info)
   try {
     const logMsg = `🗃️ Archive All executed
 Archived: ${archivedCount} application${archivedCount !== 1 ? "s" : ""}
 By: <@${session.discord_id}>
 Reason: ${reason}`;
-    await postAppLog(logMsg, true);
+    await postAppLog(logMsg, false);
   } catch (e) {
     // Don't fail the request if Discord logging fails
     console.error("Discord log error:", e);
