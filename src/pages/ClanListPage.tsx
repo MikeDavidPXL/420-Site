@@ -168,6 +168,12 @@ const ClanListPage = () => {
   const [bulkResolving, setBulkResolving] = useState(false);
   const [bulkResult, setBulkResult] = useState<string | null>(null);
 
+  // ── Manual promotion ────────────────────────────────────
+  const [manualPromoMemberId, setManualPromoMemberId] = useState<string | null>(null);
+  const [manualPromoNewRank, setManualPromoNewRank] = useState<string>("");
+  const [manualPromoRunning, setManualPromoRunning] = useState(false);
+  const [manualPromoResult, setManualPromoResult] = useState<string | null>(null);
+
   // ── Fetch members ───────────────────────────────────────
   const fetchMembers = useCallback(
     async (pg: number, q: string) => {
@@ -602,6 +608,41 @@ const ClanListPage = () => {
       setPromoResult("Network error.");
     } finally {
       setPromoRunning(false);
+    }
+  };
+
+  // ── Manual promotion ────────────────────────────────────
+  const runManualPromotion = async () => {
+    if (!manualPromoMemberId || !manualPromoNewRank) {
+      setManualPromoResult("Please select a member and rank.");
+      return;
+    }
+    setManualPromoRunning(true);
+    setManualPromoResult(null);
+    try {
+      const res = await fetch("/.netlify/functions/clan-member-force-promote", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          member_id: manualPromoMemberId,
+          new_rank: manualPromoNewRank,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setManualPromoResult(data?.error || "Manual promotion failed.");
+      } else {
+        setManualPromoResult(
+          `Success! Promoted to ${manualPromoNewRank}. ${data.role_updated ? "Role updated." : "Role update failed."}`
+        );
+        fetchMembers(page, debouncedSearch);
+        setManualPromoMemberId(null);
+        setManualPromoNewRank("");
+      }
+    } catch {
+      setManualPromoResult("Network error.");
+    } finally {
+      setManualPromoRunning(false);
     }
   };
 
@@ -1658,6 +1699,79 @@ const ClanListPage = () => {
             <p className="text-sm text-muted-foreground">
               No members are currently eligible for promotion.
             </p>
+          )}
+        </div>
+
+        {/* ── Manual Promotion section ── */}
+        <div className="border-t border-secondary/20 pt-6 space-y-4">
+          <h2 className="font-display text-lg font-bold text-secondary flex items-center gap-2">
+            <Zap className="w-5 h-5" /> Manual Promotion
+          </h2>
+          <p className="text-sm text-muted-foreground">
+            Force promote a specific member to any rank, bypassing eligibility checks.
+          </p>
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div>
+              <label className="block text-xs font-display font-bold text-muted-foreground mb-1.5">
+                Select Member
+              </label>
+              <select
+                value={manualPromoMemberId ?? ""}
+                onChange={(e) => setManualPromoMemberId(e.target.value || null)}
+                className="w-full bg-muted border border-border rounded-lg px-3 py-2 text-sm text-foreground focus:ring-2 focus:ring-secondary/50 focus:outline-none"
+              >
+                <option value="">-- Choose member --</option>
+                {members.map((m) => (
+                  <option key={m.id} value={m.id}>
+                    {m.discord_name} ({m.ign}) - Current: {m.rank_current}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div>
+              <label className="block text-xs font-display font-bold text-muted-foreground mb-1.5">
+                New Rank
+              </label>
+              <select
+                value={manualPromoNewRank}
+                onChange={(e) => setManualPromoNewRank(e.target.value)}
+                className="w-full bg-muted border border-border rounded-lg px-3 py-2 text-sm text-foreground focus:ring-2 focus:ring-secondary/50 focus:outline-none"
+              >
+                <option value="">-- Choose rank --</option>
+                {RANKS.map((rank) => (
+                  <option key={rank} value={rank}>
+                    {rank}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div className="flex items-end">
+              <button
+                onClick={runManualPromotion}
+                disabled={manualPromoRunning || !manualPromoMemberId || !manualPromoNewRank}
+                className="w-full inline-flex items-center justify-center gap-2 bg-secondary hover:bg-secondary/90 text-secondary-foreground font-display font-bold px-5 py-2 rounded-lg transition disabled:opacity-50"
+              >
+                {manualPromoRunning ? (
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                ) : (
+                  <Zap className="w-4 h-4" />
+                )}
+                Force Promote
+              </button>
+            </div>
+          </div>
+
+          {manualPromoResult && (
+            <div className={`border rounded-lg px-4 py-3 text-sm ${
+              manualPromoResult.includes("Success") 
+                ? "bg-green-500/10 border-green-500/30 text-green-400"
+                : "bg-red-500/10 border-red-500/30 text-red-400"
+            }`}>
+              {manualPromoResult}
+            </div>
           )}
         </div>
       </div>
