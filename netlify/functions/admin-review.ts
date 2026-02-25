@@ -17,6 +17,7 @@ type ApplicationRow = {
   discord_name: string;
   uid: string | null;
   ingame_name?: string | null;
+  ign?: string | null;
 };
 
 async function upsertClanMemberFromApplication(
@@ -46,7 +47,7 @@ async function upsertClanMemberFromApplication(
   const payload = {
     discord_id: app.discord_id,
     discord_name: app.discord_name,
-    ign: app.ingame_name || app.discord_name,
+    ign: app.ingame_name || app.ign || app.discord_name,
     uid: app.uid || null,
     join_date: existing?.join_date || joinDate,
     status: "active",
@@ -54,7 +55,7 @@ async function upsertClanMemberFromApplication(
     rank_current: "Private",
     frozen_days: 0,
     counting_since: acceptedAtIso,
-    source: "application",
+    source: "application" as const,
     needs_resolution: false,
     updated_at: acceptedAtIso,
   };

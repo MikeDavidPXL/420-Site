@@ -121,9 +121,11 @@ const ClanListPage = () => {
     status: "active" as "active" | "inactive",
     has_420_tag: false,
     rank_current: "Private",
+    source: "manual" as const,
   });
   const [addSaving, setAddSaving] = useState(false);
   const [addError, setAddError] = useState<string | null>(null);
+  const [uiError, setUiError] = useState<string | null>(null);
 
   // ── Inline editing ──────────────────────────────────────
   const [savingField, setSavingField] = useState<string | null>(null);
@@ -152,12 +154,18 @@ const ClanListPage = () => {
           `/.netlify/functions/clan-list-members?${params}`
         );
         const data = await res.json();
+        if (!res.ok) {
+          setUiError(data?.error || "Failed to load clan list.");
+          setMembers([]);
+          return;
+        }
         setMembers(data.members ?? []);
         setTotal(data.total ?? 0);
         setTotalPages(data.total_pages ?? 1);
         setPromoDueCount(data.promotion_due_count ?? 0);
         setUnresolvedCount(data.unresolved_count ?? 0);
       } catch {
+        setUiError("Network error while loading clan list.");
         setMembers([]);
       } finally {
         setMembersLoading(false);
@@ -260,6 +268,7 @@ const ClanListPage = () => {
         status: "active",
         has_420_tag: false,
         rank_current: "Private",
+        source: "manual",
       });
       fetchMembers(page, debouncedSearch);
     } catch {
@@ -286,7 +295,12 @@ const ClanListPage = () => {
         setMembers((prev) =>
           prev.map((m) => (m.id === id ? { ...m, ...member } : m))
         );
+      } else {
+        const data = await res.json().catch(() => ({}));
+        setUiError(data?.error || "Failed to update member.");
       }
+    } catch {
+      setUiError("Network error while updating member.");
     } finally {
       setSavingField(null);
     }
@@ -304,8 +318,11 @@ const ClanListPage = () => {
       if (res.ok) {
         setMembers((prev) => prev.filter((m) => m.id !== id));
       } else {
-        alert("Failed to delete member.");
+        const data = await res.json().catch(() => ({}));
+        setUiError(data?.error || "Failed to delete member.");
       }
+    } catch {
+      setUiError("Network error while deleting member.");
     } finally {
       setSavingField(null);
     }
@@ -320,6 +337,10 @@ const ClanListPage = () => {
         method: "POST",
       });
       const data = await res.json();
+      if (!res.ok) {
+        setUiError(data?.error || "Failed to load promotion preview.");
+        return;
+      }
       setPromoPreview(data);
     } catch {
       setPromoResult("Failed to load preview.");
@@ -342,6 +363,8 @@ const ClanListPage = () => {
       const data = await res.json();
       if (!data.ok && data.message) {
         setPromoResult(data.message);
+      } else if (!res.ok) {
+        setUiError(data?.error || "Failed to run promotions.");
       } else if (data.ok) {
         setPromoResult(
           `Done! ${data.executed} promoted, ${data.failed} failed, ${data.skipped_unresolved} skipped (unresolved).${
@@ -427,6 +450,18 @@ const ClanListPage = () => {
 
       {/* ── Content ─────────────────────────────────────── */}
       <div className="container mx-auto px-4 max-w-7xl py-6 space-y-6">
+        {uiError && (
+          <div className="bg-destructive/10 border border-destructive/30 text-destructive text-sm rounded-lg px-4 py-3 flex items-center justify-between gap-3">
+            <span>{uiError}</span>
+            <button
+              onClick={() => setUiError(null)}
+              className="text-destructive hover:opacity-80"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          </div>
+        )}
+
         {/* ── Import + Add Member buttons ── */}
         <div className="flex flex-wrap gap-3 items-center">
           <label className="inline-flex items-center gap-2 bg-secondary hover:bg-secondary/90 text-secondary-foreground font-display font-bold px-5 py-2.5 rounded-lg transition cursor-pointer">
@@ -592,17 +627,6 @@ const ClanListPage = () => {
                       <option value="active">Active</option>
                       <option value="inactive">Inactive</option>
                     </select>
-                    {savingField === m.id ? (
-                      <Loader2 className="w-3 h-3 animate-spin text-secondary" />
-                    ) : (
-                      <button
-                        onClick={() => deleteMember(m.id)}
-                        className="text-red-400 hover:text-red-300 transition"
-                        title="Delete member"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </button>
-                    )}
                   </div>
                   <div>
                     <label className="text-xs text-muted-foreground mb-1 block">

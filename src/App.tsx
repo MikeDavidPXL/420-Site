@@ -13,6 +13,7 @@ import InstallationPage from "./pages/InstallationPage";
 import VerifyPage from "./pages/VerifyPage";
 import ClanListPage from "./pages/ClanListPage";
 import NotFound from "./pages/NotFound";
+import ClanListErrorBoundary from "./components/ClanListErrorBoundary";
 
 const queryClient = new QueryClient();
 
@@ -30,7 +31,14 @@ const App = () => (
             <Route path="/apply" element={<ApplicationForm />} />
             <Route path="/pack" element={<TexturePackPage />} />
             <Route path="/admin" element={<AdminPanel />} />
-            <Route path="/clan-list" element={<ClanListPage />} />
+            <Route
+              path="/clan-list"
+              element={
+                <ClanListErrorBoundary>
+                  <ClanListPage />
+                </ClanListErrorBoundary>
+              }
+            />
             <Route path="/installation" element={<InstallationPage />} />
             <Route path="*" element={<NotFound />} />
           </Routes>

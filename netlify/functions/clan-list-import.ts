@@ -318,6 +318,7 @@ const handler: Handler = async (event) => {
   let updated = 0;
   let unresolved = 0;
   const errors: string[] = [];
+  const SOURCE_CSV = "csv" as const;
 
   for (let i = 0; i < rows.length; i++) {
     const raw = normalizeRow(rows[i], headerMapping);
@@ -426,7 +427,7 @@ const handler: Handler = async (event) => {
         ? `${effectiveDays} days in clan, meets ${nxt.name} threshold (${nxt.daysRequired} days)`
         : null,
       needs_resolution: needsResolution,
-      source: "csv" as const,
+      source: SOURCE_CSV,
       updated_at: new Date().toISOString(),
     };
 

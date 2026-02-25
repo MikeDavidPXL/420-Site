@@ -25,6 +25,7 @@ interface MemberBody {
   has_420_tag?: boolean;
   rank_current?: string;
   needs_resolution?: boolean;
+  source?: "csv" | "manual" | "application";
 }
 
 const handler: Handler = async (event) => {
@@ -203,7 +204,13 @@ const handler: Handler = async (event) => {
 
   if (createErr) {
     console.error("Member create error:", createErr);
-    return json({ error: "Create failed" }, 500);
+    return json(
+      {
+        error: "Create failed",
+        details: createErr.message,
+      },
+      500
+    );
   }
 
   await supabase.from("audit_log").insert({
