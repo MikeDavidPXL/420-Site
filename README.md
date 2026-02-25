@@ -151,5 +151,50 @@ Fix planned in future updates.
 
 # Version
 
-Current Version: 1.1.3  
+Current Version: 1.2.1  
 Status: Active Development
+
+---
+
+# Changelog
+
+## v1.2.1
+
+### Application System
+- Discord roles as single source of truth (`effective_status` based on Discord roles only)
+- Auto-revoke: applications marked "revoked" when user loses Private role in Discord
+- Reapply flow: users can override existing pending/accepted applications with "Send anyway" confirmation
+- Smooth scroll to error box on "Send anyway" and error states
+- Audit logging for all application events
+
+### Admin Panel
+- Extracted admin panel to standalone `/admin` route with dedicated layout
+- 10-second silent auto-polling (no loading flash, preserves input state)
+- Pending application badge on the navbar (red pulsing dot with count, max 99+)
+- Archive system: soft-delete/restore applications with reason tracking
+- Auto-archive for users who left the Discord guild
+
+### Dashboard
+- 10-second silent polling — dashboard auto-updates when admin changes application status
+- Tab-focus refresh — switching back to the tab triggers an immediate status check
+- Manual refresh button with "Last checked Xs ago" indicator
+- No infinite loading spinners on poll cycles
+
+### Verification System (Cloudflare Turnstile)
+- New `/verify` page with Cloudflare Turnstile captcha (Managed mode)
+- Server-side captcha validation via `POST /.netlify/functions/verify`
+- Role swap on verify: removes Unverified role, adds KOTH Player role
+- Rate limiting: max 3 verify attempts per minute per user
+- Unverified users are redirected to `/verify` before they can access `/apply`
+- Audit logging for all verify attempts (success, fail, rate-limited)
+
+### Installation Page
+- New `/installation` route with 8-step installation guide
+- Warning badges on backup and delete steps
+- Troubleshooting section and download CTA
+
+### Infrastructure
+- `silentRefresh()` in AuthContext — polls `/me` without triggering loading spinners
+- `is_unverified` flag added to `/me` endpoint and User interface
+- `admin-pending-count` lightweight endpoint (HEAD query for badge count)
+- `admin-archive` endpoint for soft-delete/restore with audit trail
