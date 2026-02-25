@@ -70,44 +70,8 @@ const Dashboard = () => {
 
       {/* Content */}
       <div className="relative z-10 container mx-auto px-4 py-16 max-w-2xl">
-        {/* STEP 1: Not in guild */}
-        {!user.in_guild && (
-          <GateCard
-            icon={<ExternalLink className="w-8 h-8 text-primary" />}
-            title="Join our Discord first"
-            description="You need to be in the 420 Clan Discord server before you can apply."
-          >
-            <a
-              href={DISCORD_INVITE}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="inline-flex items-center gap-2 bg-[#5865F2] hover:bg-[#4752C4] text-white font-display font-bold px-8 py-3 rounded-lg transition hover:scale-105"
-            >
-              <ExternalLink className="w-4 h-4" /> Join Discord
-            </a>
-          </GateCard>
-        )}
-
-        {/* STEP 2: In guild but NO KOTH Player role */}
-        {user.in_guild && !user.is_koth && (
-          <GateCard
-            icon={<ExternalLink className="w-8 h-8 text-primary" />}
-            title="Verify in Discord first"
-            description="You need to verify in the Discord server to get the KOTH Player role before you can apply to the clan."
-          >
-            <a
-              href={DISCORD_INVITE}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="inline-flex items-center gap-2 bg-[#5865F2] hover:bg-[#4752C4] text-white font-display font-bold px-8 py-3 rounded-lg transition hover:scale-105"
-            >
-              <ExternalLink className="w-4 h-4" /> Go to Discord
-            </a>
-          </GateCard>
-        )}
-
-        {/* STEP 3: Accepted (has KOTH + private role) - SHOW FIRST */}
-        {user.in_guild && user.is_koth && user.is_member && (
+        {/* Has private role → show download */}
+        {user.is_member && (
           <GateCard
             icon={<Download className="w-8 h-8 text-accent" />}
             title="Welcome to 420 Clan!"
@@ -122,63 +86,86 @@ const Dashboard = () => {
           </GateCard>
         )}
 
-        {/* STEP 4: Has KOTH but NOT yet accepted - show application flow */}
-        {user.in_guild && user.is_koth && !user.is_member && (
+        {/* No private role → show application flow */}
+        {!user.is_member && (
           <>
-            {/* No application yet */}
-            {!user.application && (
+            {/* Not in guild */}
+            {!user.in_guild && (
               <GateCard
-                icon={<FileText className="w-8 h-8 text-primary" />}
-                title="Apply for the 420 Clan"
-                description="Fill out the application form to join us. Staff will review it soon."
+                icon={<ExternalLink className="w-8 h-8 text-primary" />}
+                title="Join our Discord first"
+                description="You need to be in the 420 Clan Discord server before you can apply."
               >
-                <Link
-                  to="/apply"
-                  className="inline-flex items-center gap-2 bg-primary hover:bg-primary/90 text-primary-foreground font-display font-bold px-8 py-3 rounded-lg transition hover:scale-105"
+                <a
+                  href={DISCORD_INVITE}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-2 bg-[#5865F2] hover:bg-[#4752C4] text-white font-display font-bold px-8 py-3 rounded-lg transition hover:scale-105"
                 >
-                  <FileText className="w-4 h-4" /> Start Application
-                </Link>
+                  <ExternalLink className="w-4 h-4" /> Join Discord
+                </a>
               </GateCard>
             )}
 
-            {/* Application pending */}
-            {user.application?.status === "pending" && (
-              <GateCard
-                icon={<Loader2 className="w-8 h-8 text-yellow-400 animate-spin" />}
-                title="Application Pending"
-                description="Your application is being reviewed by staff. Hang tight!"
-              >
-                <span className="text-yellow-400 font-display text-sm">
-                  Submitted{" "}
-                  {new Date(user.application.created_at).toLocaleDateString()}
-                </span>
-              </GateCard>
-            )}
-
-            {/* Application rejected */}
-            {user.application?.status === "rejected" && (
-              <GateCard
-                icon={<FileText className="w-8 h-8 text-destructive" />}
-                title="Application Rejected"
-                description="Unfortunately your application was not accepted. You may re-apply."
-              >
-                {user.application.reviewer_note && (
-                  <div className="mb-6 p-4 bg-destructive/10 border border-destructive/30 rounded-lg">
-                    <p className="text-sm text-muted-foreground font-display font-bold mb-2">
-                      Feedback from Staff:
-                    </p>
-                    <p className="text-sm text-foreground">
-                      {user.application.reviewer_note}
-                    </p>
-                  </div>
+            {/* In guild → show application flow */}
+            {user.in_guild && (
+              <>
+                {/* No application yet */}
+                {!user.application && (
+                  <GateCard
+                    icon={<FileText className="w-8 h-8 text-primary" />}
+                    title="Apply for the 420 Clan"
+                    description="Fill out the application form to join us. Staff will review it soon."
+                  >
+                    <Link
+                      to="/apply"
+                      className="inline-flex items-center gap-2 bg-primary hover:bg-primary/90 text-primary-foreground font-display font-bold px-8 py-3 rounded-lg transition hover:scale-105"
+                    >
+                      <FileText className="w-4 h-4" /> Start Application
+                    </Link>
+                  </GateCard>
                 )}
-                <Link
-                  to="/apply"
-                  className="inline-flex items-center gap-2 bg-primary hover:bg-primary/90 text-primary-foreground font-display font-bold px-8 py-3 rounded-lg transition hover:scale-105"
-                >
-                  <FileText className="w-4 h-4" /> Re-Apply
-                </Link>
-              </GateCard>
+
+                {/* Application pending */}
+                {user.application?.status === "pending" && (
+                  <GateCard
+                    icon={<Loader2 className="w-8 h-8 text-yellow-400 animate-spin" />}
+                    title="Application Pending"
+                    description="Your application is being reviewed by staff. Hang tight!"
+                  >
+                    <span className="text-yellow-400 font-display text-sm">
+                      Submitted{" "}
+                      {new Date(user.application.created_at).toLocaleDateString()}
+                    </span>
+                  </GateCard>
+                )}
+
+                {/* Application rejected */}
+                {user.application?.status === "rejected" && (
+                  <GateCard
+                    icon={<FileText className="w-8 h-8 text-destructive" />}
+                    title="Application Rejected"
+                    description="Unfortunately your application was not accepted. You may re-apply."
+                  >
+                    {user.application.reviewer_note && (
+                      <div className="mb-6 p-4 bg-destructive/10 border border-destructive/30 rounded-lg">
+                        <p className="text-sm text-muted-foreground font-display font-bold mb-2">
+                          Feedback from Staff:
+                        </p>
+                        <p className="text-sm text-foreground">
+                          {user.application.reviewer_note}
+                        </p>
+                      </div>
+                    )}
+                    <Link
+                      to="/apply"
+                      className="inline-flex items-center gap-2 bg-primary hover:bg-primary/90 text-primary-foreground font-display font-bold px-8 py-3 rounded-lg transition hover:scale-105"
+                    >
+                      <FileText className="w-4 h-4" /> Re-Apply
+                    </Link>
+                  </GateCard>
+                )}
+              </>
             )}
           </>
         )}
