@@ -145,7 +145,7 @@ const Dashboard = () => {
         )}
 
         {/* Accepted → texture pack access */}
-        {user.in_guild && user.application?.status === "accepted" && (
+        {user.in_guild && user.is_member && (
           <GateCard
             icon={<Download className="w-8 h-8 text-accent" />}
             title="Welcome to 420 Clan!"

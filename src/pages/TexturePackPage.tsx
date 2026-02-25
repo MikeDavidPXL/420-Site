@@ -42,7 +42,7 @@ const TexturePackPage = () => {
   }, []);
 
   // Guard: must be logged in + accepted
-  if (!loading && (!user || user.application?.status !== "accepted")) {
+  if (!loading && (!user || !user.is_member)) {
     return <Navigate to="/dashboard" replace />;
   }
 

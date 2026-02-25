@@ -39,6 +39,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({
 
   const fetchUser = async () => {
     try {
+      setLoading(true);
       const res = await fetch("/.netlify/functions/me");
       const data = await res.json();
       setUser(data.user ?? null);
