@@ -155,8 +155,7 @@ export interface GuildMemberCandidate {
 export function normalizeLookup(input: string | null | undefined): string {
   return (input ?? "")
     .toLowerCase()
-    .replace(/[
-]+/g, " ")
+    .replace(/[\r\n]+/g, " ")
     .replace(/\s+/g, " ")
     .trim();
 }
