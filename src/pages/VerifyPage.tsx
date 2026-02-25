@@ -15,8 +15,10 @@ const VerifyPage = () => {
   const [error, setError] = useState<string | null>(null);
   const [captchaToken, setCaptchaToken] = useState<string | null>(null);
   const [captchaReady, setCaptchaReady] = useState(false);
+  const [widgetRendered, setWidgetRendered] = useState(false);
   const widgetRef = useRef<HTMLDivElement>(null);
   const turnstileWidgetId = useRef<string | null>(null);
+  const scriptAdded = useRef(false);
 
   // ── Load Turnstile script once ──────────────────────────
   useEffect(() => {
@@ -26,19 +28,22 @@ const VerifyPage = () => {
       return;
     }
 
-    const script = document.createElement("script");
-    script.src =
-      "https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit&onload=onTurnstileLoad";
-    script.async = true;
+    // Prevent double-adding in strict mode
+    if (scriptAdded.current) return;
+    scriptAdded.current = true;
 
-    (window as any).onTurnstileLoad = () => {
+    const callbackName = "__turnstile_onload__";
+    (window as any)[callbackName] = () => {
       setCaptchaReady(true);
     };
 
+    const script = document.createElement("script");
+    script.src = `https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit&onload=${callbackName}`;
+    script.async = true;
     document.head.appendChild(script);
 
     return () => {
-      delete (window as any).onTurnstileLoad;
+      delete (window as any)[callbackName];
     };
   }, []);
 
@@ -47,19 +52,32 @@ const VerifyPage = () => {
     if (!captchaReady || !widgetRef.current || !window.turnstile) return;
     // Don't render twice
     if (turnstileWidgetId.current) return;
+    if (!TURNSTILE_SITE_KEY) {
+      setError("Captcha configuration missing. Please contact staff.");
+      return;
+    }
 
-    turnstileWidgetId.current = window.turnstile.render(widgetRef.current, {
-      sitekey: TURNSTILE_SITE_KEY,
-      callback: (token: string) => setCaptchaToken(token),
-      "error-callback": () => {
-        setCaptchaToken(null);
-        setError("Captcha failed to load. Please refresh the page.");
-      },
-      "expired-callback": () => {
-        setCaptchaToken(null);
-      },
-      theme: "dark",
-    });
+    try {
+      turnstileWidgetId.current = window.turnstile.render(widgetRef.current, {
+        sitekey: TURNSTILE_SITE_KEY,
+        callback: (token: string) => {
+          setCaptchaToken(token);
+          setError(null);
+        },
+        "error-callback": () => {
+          setCaptchaToken(null);
+          setError("Captcha failed to load. Please refresh the page.");
+        },
+        "expired-callback": () => {
+          setCaptchaToken(null);
+          setError("Captcha expired. Please complete it again.");
+        },
+        theme: "dark",
+      });
+      setWidgetRendered(true);
+    } catch {
+      setError("Failed to initialize captcha. Please refresh the page.");
+    }
   }, [captchaReady]);
 
   // ── Reset captcha helper ────────────────────────────────
@@ -154,9 +172,27 @@ const VerifyPage = () => {
           </p>
 
           {/* Turnstile widget */}
-          <div className="flex justify-center mb-6">
+          <div className="flex justify-center mb-4">
+            {!widgetRendered && !error && (
+              <div className="flex items-center gap-2 text-muted-foreground text-sm py-4">
+                <Loader2 className="w-4 h-4 animate-spin" />
+                Loading captcha...
+              </div>
+            )}
             <div ref={widgetRef} />
           </div>
+
+          {/* Status hint */}
+          {widgetRendered && !captchaToken && !error && (
+            <p className="text-xs text-muted-foreground mb-4">
+              Complete the captcha above to enable the button.
+            </p>
+          )}
+          {captchaToken && (
+            <p className="text-xs text-green-400 mb-4">
+              Captcha completed — click Verify to continue.
+            </p>
+          )}
 
           {error && (
             <div className="flex items-center gap-2 justify-center bg-destructive/10 border border-destructive/30 rounded-lg p-3 mb-6 text-sm text-destructive">
