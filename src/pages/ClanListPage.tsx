@@ -189,11 +189,12 @@ const ClanListPage = () => {
 
     try {
       const data = await file.arrayBuffer();
-      const workbook = XLSX.read(data, { type: "array" });
+      const workbook = XLSX.read(data, { type: "array", cellDates: false });
       const sheetName = workbook.SheetNames[0];
       const sheet = workbook.Sheets[sheetName];
       const jsonRows = XLSX.utils.sheet_to_json<Record<string, unknown>>(
-        sheet
+        sheet,
+        { raw: true }
       );
 
       if (jsonRows.length === 0) {

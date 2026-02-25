@@ -170,12 +170,67 @@ function normalizeRank(raw: string | undefined): string {
   return found ? found.name : "Private";
 }
 
-// Parse date from various formats
-function parseDate(raw: string | undefined): string | null {
-  if (!raw) return null;
-  const d = new Date(raw);
-  if (isNaN(d.getTime())) return null;
-  return d.toISOString().split("T")[0]; // YYYY-MM-DD
+// Parse date from various formats:
+// - Excel serial number (e.g. 45695 → 2025-02-07)
+// - DD/MM/YYYY (European, used in user's CSV)
+// - MM/DD/YYYY (US)
+// - YYYY-MM-DD (ISO)
+function parseDate(raw: string | number | undefined): string | null {
+  if (raw == null || raw === "") return null;
+
+  // 1. Excel serial date number
+  const num = typeof raw === "number" ? raw : Number(raw);
+  if (!isNaN(num) && num > 1000 && num < 200000) {
+    // Convert Excel serial → JS Date. 25569 = days between 1900-01-01 and Unix epoch.
+    // Add 12h to avoid timezone edge-case rounding.
+    const ms = (num - 25569) * 86_400_000 + 43_200_000;
+    const d = new Date(ms);
+    if (!isNaN(d.getTime())) {
+      return d.toISOString().split("T")[0];
+    }
+  }
+
+  const s = String(raw).trim();
+
+  // 2. DD/MM/YYYY or MM/DD/YYYY
+  const slashMatch = s.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})$/);
+  if (slashMatch) {
+    const a = parseInt(slashMatch[1], 10);
+    const b = parseInt(slashMatch[2], 10);
+    const year = parseInt(slashMatch[3], 10);
+    let day: number, month: number;
+    if (a > 12) {
+      // a must be day (DD/MM/YYYY)
+      day = a; month = b;
+    } else if (b > 12) {
+      // b must be day (MM/DD/YYYY)
+      day = b; month = a;
+    } else {
+      // Ambiguous — default to DD/MM/YYYY (European)
+      day = a; month = b;
+    }
+    if (month >= 1 && month <= 12 && day >= 1 && day <= 31 && year >= 1900 && year <= 2100) {
+      const d = new Date(Date.UTC(year, month - 1, day));
+      if (!isNaN(d.getTime())) {
+        return d.toISOString().split("T")[0];
+      }
+    }
+  }
+
+  // 3. YYYY-MM-DD (ISO)
+  const isoMatch = s.match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if (isoMatch) {
+    const d = new Date(Date.UTC(
+      parseInt(isoMatch[1], 10),
+      parseInt(isoMatch[2], 10) - 1,
+      parseInt(isoMatch[3], 10)
+    ));
+    if (!isNaN(d.getTime())) {
+      return d.toISOString().split("T")[0];
+    }
+  }
+
+  return null;
 }
 
 const handler: Handler = async (event) => {
