@@ -23,6 +23,7 @@ import {
 } from "lucide-react";
 import * as XLSX from "xlsx";
 import clanLogo from "@/assets/clan-logo.png";
+import PromotionQueueSection from "@/components/PromotionQueueSection";
 
 // ── Types ─────────────────────────────────────────────────
 interface ClanMember {
@@ -1775,6 +1776,9 @@ const ClanListPage = () => {
           )}
         </div>
       </div>
+
+      {/* Queued Promotion Management Section */}
+      <PromotionQueueSection />
     </div>
   );
 };

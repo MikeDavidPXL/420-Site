@@ -71,6 +71,7 @@ const staffMembers = [
     role: "Clan Admin",
     avatar_url: "/images/staff/admin2.png",
   },
+  
 ];
 
 const roleOrder = ["Owner", "Web Developer", "Clan Admin"];
