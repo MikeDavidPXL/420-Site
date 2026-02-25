@@ -81,6 +81,134 @@ export async function removeRole(userId: string, roleId: string) {
   return res.ok;
 }
 
+// ── Rank ladder ─────────────────────────────────────────────
+export interface RankDef {
+  name: string;
+  roleId: string | null;
+  daysRequired: number;
+}
+
+export const RANK_LADDER: RankDef[] = [
+  { name: "Recruit",    roleId: null,                    daysRequired: 0  },
+  { name: "Corporal",   roleId: "1374050435484094525",   daysRequired: 14 },
+  { name: "Sergeant",   roleId: "1378450788069933206",   daysRequired: 30 },
+  { name: "Lieutenant", roleId: "1378450714845778022",   daysRequired: 60 },
+  { name: "Major",      roleId: "1378450739885637702",   daysRequired: 90 },
+];
+
+export const RANK_ROLE_IDS = RANK_LADDER
+  .map((r) => r.roleId)
+  .filter(Boolean) as string[];
+
+/** Get the rank index (0 = Recruit, 4 = Major) */
+export function rankIndex(name: string): number {
+  const idx = RANK_LADDER.findIndex(
+    (r) => r.name.toLowerCase() === name.toLowerCase()
+  );
+  return idx === -1 ? 0 : idx;
+}
+
+/** Calculate effective time in clan (days) */
+export function computeTimeDays(
+  frozenDays: number,
+  countingSince: string | null
+): number {
+  if (!countingSince) return frozenDays;
+  const now = Date.now();
+  const since = new Date(countingSince).getTime();
+  const diff = Math.max(0, Math.floor((now - since) / 86_400_000));
+  return frozenDays + diff;
+}
+
+/** Determine the highest rank earned based on days */
+export function earnedRank(days: number): RankDef {
+  let earned = RANK_LADDER[0];
+  for (const rank of RANK_LADDER) {
+    if (days >= rank.daysRequired) earned = rank;
+  }
+  return earned;
+}
+
+/** Determine next rank above current rank (null if already Major) */
+export function nextRankFor(currentRank: string, days: number): RankDef | null {
+  const idx = rankIndex(currentRank);
+  if (idx >= RANK_LADDER.length - 1) return null; // already Major
+  const next = RANK_LADDER[idx + 1];
+  if (days >= next.daysRequired) return next;
+  return next; // show upcoming rank even if not yet earned
+}
+
+// ── Fetch all guild members (paginated) ─────────────────────
+export interface GuildMember {
+  user: { id: string; username: string; global_name?: string | null };
+  nick?: string | null;
+  roles: string[];
+}
+
+export async function fetchAllGuildMembers(): Promise<GuildMember[]> {
+  const allMembers: GuildMember[] = [];
+  let after = "0";
+  const limit = 1000;
+
+  while (true) {
+    const data = await discordFetch(
+      `/guilds/${process.env.DISCORD_GUILD_ID}/members?limit=${limit}&after=${after}`,
+      process.env.DISCORD_BOT_TOKEN!,
+      true
+    );
+    if (!data || !Array.isArray(data) || data.length === 0) break;
+    allMembers.push(...data);
+    if (data.length < limit) break;
+    after = data[data.length - 1].user.id;
+  }
+
+  return allMembers;
+}
+
+/** Try to resolve discord_id from a display name */
+export function resolveDiscordId(
+  displayName: string,
+  guildMembers: GuildMember[]
+): { id: string | null; multiple: boolean } {
+  const lower = displayName.toLowerCase().trim();
+  const matches = guildMembers.filter((m) => {
+    const un = m.user.username?.toLowerCase() ?? "";
+    const gn = m.user.global_name?.toLowerCase() ?? "";
+    const nn = m.nick?.toLowerCase() ?? "";
+    return un === lower || gn === lower || nn === lower;
+  });
+
+  if (matches.length === 1) return { id: matches[0].user.id, multiple: false };
+  if (matches.length > 1) return { id: null, multiple: true };
+  return { id: null, multiple: false };
+}
+
+/** Check if a guild member has "420" in any name field */
+export function has420InName(member: GuildMember): boolean {
+  const names = [
+    member.user.username,
+    member.user.global_name,
+    member.nick,
+  ].filter(Boolean) as string[];
+  return names.some((n) => n.includes("420"));
+}
+
+// ── Post to a Discord channel ───────────────────────────────
+export async function postChannelMessage(
+  channelId: string,
+  content: string
+): Promise<boolean> {
+  const res = await fetch(`${DISCORD_API}/channels/${channelId}/messages`, {
+    method: "POST",
+    headers: {
+      Authorization: `Bot ${process.env.DISCORD_BOT_TOKEN}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ content }),
+  });
+  return res.ok;
+}
+
 // ── Response helpers ────────────────────────────────────────
 export function json(body: unknown, status = 200, extraHeaders: Record<string, string> = {}) {
   return {

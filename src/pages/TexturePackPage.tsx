@@ -55,10 +55,7 @@ const getNavItems = (isStaff: boolean) => {
     { label: "Download", href: "#download" },
     { label: "Installation", href: "/installation", route: true },
   ];
-  if (isStaff) {
-    items.push({ label: "Admin Panel", href: "/admin", route: true });
-    items.push({ label: "Clan List", href: "/clan-list", route: true });
-  }
+  // Staff-only items are now in the shield dropdown menu
   return items;
 };
 
@@ -431,12 +428,26 @@ function PackNavbar({
 }) {
   const [scrolled, setScrolled] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [shieldOpen, setShieldOpen] = useState(false);
+  const shieldRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 50);
     window.addEventListener("scroll", onScroll);
     return () => window.removeEventListener("scroll", onScroll);
   }, []);
+
+  // Close shield dropdown when clicking outside
+  useEffect(() => {
+    if (!shieldOpen) return;
+    const onClick = (e: MouseEvent) => {
+      if (shieldRef.current && !shieldRef.current.contains(e.target as Node)) {
+        setShieldOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", onClick);
+    return () => document.removeEventListener("mousedown", onClick);
+  }, [shieldOpen]);
 
   return (
     <motion.nav
@@ -458,26 +469,15 @@ function PackNavbar({
         </a>
         <div className="hidden md:flex items-center gap-6">
           {navItems.map((item) => {
-            const isAdmin = item.label === "Admin Panel";
             const isInstall = item.label === "Installation";
-            const isClanList = item.label === "Clan List";
-            const cls = `font-body text-sm font-medium hover:text-primary transition-colors duration-200 uppercase tracking-wider ${
-              isAdmin ? "text-secondary hover:text-secondary/80" : ""
-            }`;
+            const cls =
+              "font-body text-sm font-medium hover:text-primary transition-colors duration-200 uppercase tracking-wider";
 
-            // Route links use React Router <Link>
             if (item.route) {
               return (
-                <Link key={item.href} to={item.href} className={`${cls} relative`}>
-                  {isAdmin && <Shield className="w-3.5 h-3.5 inline mr-1" />}
+                <Link key={item.href} to={item.href} className={cls}>
                   {isInstall && <BookOpen className="w-3.5 h-3.5 inline mr-1" />}
-                  {isClanList && <Users className="w-3.5 h-3.5 inline mr-1" />}
                   {item.label}
-                  {isAdmin && pendingCount > 0 && (
-                    <span className="absolute -top-2 -right-4 bg-red-500 text-white text-[10px] font-bold min-w-[18px] h-[18px] flex items-center justify-center rounded-full px-1 animate-pulse">
-                      {pendingCount > 99 ? "99+" : pendingCount}
-                    </span>
-                  )}
                 </Link>
               );
             }
@@ -496,6 +496,55 @@ function PackNavbar({
             )}
             <span className="text-sm text-foreground hidden sm:block">{user.username}</span>
           </div>
+
+          {/* ── Shield dropdown (staff only) ── */}
+          {user.is_staff && (
+            <div className="relative" ref={shieldRef}>
+              <button
+                type="button"
+                onClick={() => setShieldOpen((o) => !o)}
+                className={`relative transition ${
+                  shieldOpen
+                    ? "text-secondary drop-shadow-[0_0_6px_rgba(168,85,247,0.7)]"
+                    : "text-secondary/70 hover:text-secondary hover:drop-shadow-[0_0_6px_rgba(168,85,247,0.5)]"
+                }`}
+                aria-label="Admin tools"
+              >
+                <Shield className="w-5 h-5" />
+                {pendingCount > 0 && (
+                  <span className="absolute -top-1.5 -right-1.5 bg-red-500 text-white text-[9px] font-bold min-w-[16px] h-[16px] flex items-center justify-center rounded-full px-0.5 animate-pulse">
+                    {pendingCount > 99 ? "99+" : pendingCount}
+                  </span>
+                )}
+              </button>
+              {shieldOpen && (
+                <div className="absolute right-0 top-full mt-2 w-48 bg-card border border-secondary/40 rounded-lg shadow-xl shadow-secondary/10 overflow-hidden z-50">
+                  <Link
+                    to="/admin"
+                    onClick={() => setShieldOpen(false)}
+                    className="flex items-center gap-2 px-4 py-3 text-sm font-display font-bold text-secondary hover:bg-secondary/10 transition"
+                  >
+                    <Shield className="w-4 h-4" />
+                    Admin Panel
+                    {pendingCount > 0 && (
+                      <span className="ml-auto bg-red-500 text-white text-[10px] font-bold min-w-[18px] h-[18px] flex items-center justify-center rounded-full px-1">
+                        {pendingCount > 99 ? "99+" : pendingCount}
+                      </span>
+                    )}
+                  </Link>
+                  <Link
+                    to="/clan-list"
+                    onClick={() => setShieldOpen(false)}
+                    className="flex items-center gap-2 px-4 py-3 text-sm font-display font-bold text-secondary hover:bg-secondary/10 transition border-t border-secondary/20"
+                  >
+                    <Users className="w-4 h-4" />
+                    Clan List
+                  </Link>
+                </div>
+              )}
+            </div>
+          )}
+
           <a
             href="/.netlify/functions/logout"
             className="text-muted-foreground hover:text-destructive transition"
@@ -517,12 +566,9 @@ function PackNavbar({
         <div className="md:hidden border-t border-border/60 bg-background/95 backdrop-blur-md">
           <div className="px-4 py-4 flex flex-col gap-3">
             {navItems.map((item) => {
-              const isAdmin = item.label === "Admin Panel";
               const isInstall = item.label === "Installation";
-              const isClanList = item.label === "Clan List";
-              const cls = `font-body text-sm font-medium uppercase tracking-wider transition-colors duration-200 ${
-                isAdmin ? "text-secondary" : "text-foreground"
-              }`;
+              const cls =
+                "font-body text-sm font-medium uppercase tracking-wider transition-colors duration-200 text-foreground";
 
               if (item.route) {
                 return (
@@ -532,9 +578,7 @@ function PackNavbar({
                     className={cls}
                     onClick={() => setMobileOpen(false)}
                   >
-                    {isAdmin && <Shield className="w-4 h-4 inline mr-2" />}
                     {isInstall && <BookOpen className="w-4 h-4 inline mr-2" />}
-                    {isClanList && <Users className="w-4 h-4 inline mr-2" />}
                     {item.label}
                   </Link>
                 );

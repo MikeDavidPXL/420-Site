@@ -1,7 +1,7 @@
-// Clan List — standalone admin page, neon purple accent
-// Upload XLSX, view/search clan members, archive lists
+// Clan List — staff-only admin page, neon purple accent
+// CSV import, manual member add, inline editing, promotion management
 import { useEffect, useState, useCallback, useRef } from "react";
-import { motion } from "framer-motion";
+import { motion, AnimatePresence } from "framer-motion";
 import { useAuth } from "@/context/AuthContext";
 import { Navigate, Link } from "react-router-dom";
 import {
@@ -10,34 +10,70 @@ import {
   Loader2,
   Upload,
   Search,
-  Archive,
-  ArchiveRestore,
-  Download,
   ChevronLeft,
   ChevronRight,
   LogOut,
-  FileSpreadsheet,
-  Trash2,
+  Plus,
+  Save,
+  X,
+  AlertTriangle,
+  Zap,
+  Check,
 } from "lucide-react";
 import * as XLSX from "xlsx";
 import clanLogo from "@/assets/clan-logo.png";
 
 // ── Types ─────────────────────────────────────────────────
-interface ClanList {
+interface ClanMember {
   id: string;
-  uploaded_at: string;
-  uploaded_by: string;
-  file_name: string;
-  row_count: number;
-  archived_at: string | null;
-  archived_by: string | null;
-  archive_reason: string | null;
+  discord_name: string;
+  discord_id: string | null;
+  ign: string;
+  uid: string;
+  join_date: string;
+  status: "active" | "inactive";
+  has_420_tag: boolean;
+  rank_current: string;
+  rank_next: string | null;
+  frozen_days: number;
+  counting_since: string | null;
+  promote_eligible: boolean;
+  promote_reason: string | null;
+  needs_resolution: boolean;
+  source: string;
+  time_in_clan_days: number;
+  created_at: string;
+  updated_at: string;
 }
 
-interface ClanRow {
-  id: string;
-  row_data: Record<string, unknown>;
+interface PromotionEntry {
+  member_id: string;
+  discord_name: string;
+  discord_id: string | null;
+  ign: string;
+  uid: string;
+  from_rank: string;
+  to_rank: string;
+  time_in_clan_days: number;
+  reason: string;
+  needs_resolution: boolean;
 }
+
+interface PromotionPreview {
+  promotions: PromotionEntry[];
+  total_due: number;
+  threshold_met: boolean;
+  unresolved: {
+    member_id: string;
+    discord_name: string;
+    ign: string;
+    uid: string;
+    from_rank: string;
+    to_rank: string;
+  }[];
+}
+
+const RANKS = ["Recruit", "Corporal", "Sergeant", "Lieutenant", "Major"];
 
 // ══════════════════════════════════════════════════════════
 //  CLAN LIST PAGE
@@ -45,193 +81,259 @@ interface ClanRow {
 const ClanListPage = () => {
   const { user, loading: authLoading } = useAuth();
 
-  // ── List management state ───────────────────────────────
-  const [lists, setLists] = useState<ClanList[]>([]);
-  const [selectedList, setSelectedList] = useState<string | null>(null);
-  const [showArchived, setShowArchived] = useState(false);
-  const [listsLoading, setListsLoading] = useState(true);
-
-  // ── Rows state ──────────────────────────────────────────
-  const [rows, setRows] = useState<ClanRow[]>([]);
-  const [columns, setColumns] = useState<string[]>([]);
-  const [rowsLoading, setRowsLoading] = useState(false);
+  // ── Members state ───────────────────────────────────────
+  const [members, setMembers] = useState<ClanMember[]>([]);
+  const [membersLoading, setMembersLoading] = useState(true);
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [total, setTotal] = useState(0);
+  const [promoDueCount, setPromoDueCount] = useState(0);
+  const [unresolvedCount, setUnresolvedCount] = useState(0);
+
+  // ── Filters ─────────────────────────────────────────────
   const [search, setSearch] = useState("");
+  const [statusFilter, setStatusFilter] = useState("");
+  const [tagFilter, setTagFilter] = useState("");
+  const [promoFilter, setPromoFilter] = useState("");
   const searchTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [debouncedSearch, setDebouncedSearch] = useState("");
 
   // ── Upload state ────────────────────────────────────────
   const [uploading, setUploading] = useState(false);
+  const [uploadResult, setUploadResult] = useState<{
+    imported: number;
+    updated: number;
+    unresolved: number;
+    errors: string[];
+  } | null>(null);
   const [uploadError, setUploadError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // ── Action state ────────────────────────────────────────
-  const [actionLoading, setActionLoading] = useState<string | null>(null);
+  // ── Add member form ─────────────────────────────────────
+  const [showAddForm, setShowAddForm] = useState(false);
+  const [addForm, setAddForm] = useState({
+    discord_name: "",
+    ign: "",
+    uid: "",
+    join_date: new Date().toISOString().split("T")[0],
+    status: "active" as "active" | "inactive",
+    has_420_tag: false,
+    rank_current: "Recruit",
+  });
+  const [addSaving, setAddSaving] = useState(false);
+  const [addError, setAddError] = useState<string | null>(null);
 
-  // ── Fetch lists ─────────────────────────────────────────
-  const fetchLists = useCallback(async () => {
-    setListsLoading(true);
-    try {
-      const params = new URLSearchParams();
-      if (showArchived) params.set("show_archived", "true");
-      const qs = params.toString() ? `?${params}` : "";
-      const res = await fetch(`/.netlify/functions/clan-list${qs}`);
-      const data = await res.json();
-      setLists(data.lists ?? []);
-    } catch {
-      setLists([]);
-    } finally {
-      setListsLoading(false);
-    }
-  }, [showArchived]);
+  // ── Inline editing ──────────────────────────────────────
+  const [savingField, setSavingField] = useState<string | null>(null);
 
-  useEffect(() => {
-    if (user?.is_staff) fetchLists();
-  }, [user, fetchLists]);
+  // ── Promotions ──────────────────────────────────────────
+  const [promoPreview, setPromoPreview] = useState<PromotionPreview | null>(
+    null
+  );
+  const [promoLoading, setPromoLoading] = useState(false);
+  const [promoRunning, setPromoRunning] = useState(false);
+  const [promoResult, setPromoResult] = useState<string | null>(null);
+  const [showForceConfirm, setShowForceConfirm] = useState(false);
 
-  // ── Fetch rows for selected list ────────────────────────
-  const fetchRows = useCallback(
-    async (listId: string, pg: number, q: string) => {
-      setRowsLoading(true);
+  // ── Fetch members ───────────────────────────────────────
+  const fetchMembers = useCallback(
+    async (pg: number, q: string) => {
+      setMembersLoading(true);
       try {
-        const params = new URLSearchParams({
-          list_id: listId,
-          page: String(pg),
-        });
+        const params = new URLSearchParams({ page: String(pg) });
         if (q) params.set("search", q);
-        const res = await fetch(`/.netlify/functions/clan-list?${params}`);
+        if (statusFilter) params.set("status", statusFilter);
+        if (tagFilter) params.set("has_420_tag", tagFilter);
+        if (promoFilter) params.set("promotion_due", promoFilter);
+
+        const res = await fetch(
+          `/.netlify/functions/clan-list-members?${params}`
+        );
         const data = await res.json();
-        setRows(data.rows ?? []);
+        setMembers(data.members ?? []);
         setTotal(data.total ?? 0);
         setTotalPages(data.total_pages ?? 1);
-
-        // Extract columns from the first batch of rows
-        if (data.rows?.length > 0) {
-          const allKeys = new Set<string>();
-          data.rows.forEach((r: ClanRow) => {
-            Object.keys(r.row_data).forEach((k) => allKeys.add(k));
-          });
-          setColumns(Array.from(allKeys));
-        }
+        setPromoDueCount(data.promotion_due_count ?? 0);
+        setUnresolvedCount(data.unresolved_count ?? 0);
       } catch {
-        setRows([]);
+        setMembers([]);
       } finally {
-        setRowsLoading(false);
+        setMembersLoading(false);
       }
     },
-    []
+    [statusFilter, tagFilter, promoFilter]
   );
 
   useEffect(() => {
-    if (selectedList) {
-      fetchRows(selectedList, page, search);
-    }
-  }, [selectedList, page, search, fetchRows]);
+    if (user?.is_staff) fetchMembers(page, debouncedSearch);
+  }, [user, page, debouncedSearch, fetchMembers]);
 
   // ── Debounced search ────────────────────────────────────
   const handleSearchChange = (val: string) => {
+    setSearch(val);
     if (searchTimeout.current) clearTimeout(searchTimeout.current);
     searchTimeout.current = setTimeout(() => {
-      setSearch(val);
+      setDebouncedSearch(val);
       setPage(1);
     }, 400);
   };
 
-  // ── File upload handler ─────────────────────────────────
+  // ── CSV upload handler ──────────────────────────────────
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
     setUploading(true);
     setUploadError(null);
+    setUploadResult(null);
 
     try {
       const data = await file.arrayBuffer();
       const workbook = XLSX.read(data, { type: "array" });
       const sheetName = workbook.SheetNames[0];
       const sheet = workbook.Sheets[sheetName];
-      const jsonRows = XLSX.utils.sheet_to_json<Record<string, unknown>>(sheet);
+      const jsonRows = XLSX.utils.sheet_to_json<Record<string, unknown>>(
+        sheet
+      );
 
       if (jsonRows.length === 0) {
         setUploadError("The file contains no data rows.");
         return;
       }
 
-      const res = await fetch("/.netlify/functions/clan-list-upload", {
+      const res = await fetch("/.netlify/functions/clan-list-import", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ file_name: file.name, rows: jsonRows }),
+        body: JSON.stringify({ rows: jsonRows }),
       });
 
       const result = await res.json();
-
       if (!res.ok) {
         setUploadError(result.error || "Upload failed");
         return;
       }
 
-      // Refresh lists and auto-select the new one
-      await fetchLists();
-      setSelectedList(result.list_id);
+      setUploadResult(result);
+      fetchMembers(1, debouncedSearch);
       setPage(1);
-      setSearch("");
     } catch {
       setUploadError("Failed to read or upload the file.");
     } finally {
       setUploading(false);
-      // Reset file input
       if (fileInputRef.current) fileInputRef.current.value = "";
     }
   };
 
-  // ── Archive / restore list ──────────────────────────────
-  const archiveList = async (listId: string, action: "archive" | "restore") => {
-    setActionLoading(listId);
+  // ── Add member ──────────────────────────────────────────
+  const handleAddMember = async () => {
+    if (
+      !addForm.discord_name ||
+      !addForm.ign ||
+      !addForm.uid ||
+      !addForm.join_date
+    ) {
+      setAddError("All fields are required.");
+      return;
+    }
+    setAddSaving(true);
+    setAddError(null);
     try {
-      const res = await fetch("/.netlify/functions/clan-list-archive", {
+      const res = await fetch("/.netlify/functions/clan-list-member", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ list_id: listId, action }),
+        body: JSON.stringify(addForm),
       });
-      if (res.ok) {
-        await fetchLists();
-        if (selectedList === listId && action === "archive") {
-          setSelectedList(null);
-          setRows([]);
-        }
+      const result = await res.json();
+      if (!res.ok) {
+        setAddError(result.error || "Failed to add member");
+        return;
       }
+      setShowAddForm(false);
+      setAddForm({
+        discord_name: "",
+        ign: "",
+        uid: "",
+        join_date: new Date().toISOString().split("T")[0],
+        status: "active",
+        has_420_tag: false,
+        rank_current: "Recruit",
+      });
+      fetchMembers(page, debouncedSearch);
+    } catch {
+      setAddError("Network error");
     } finally {
-      setActionLoading(null);
+      setAddSaving(false);
     }
   };
 
-  // ── Export to CSV ───────────────────────────────────────
-  const exportCSV = () => {
-    if (rows.length === 0 || columns.length === 0) return;
+  // ── Inline update member field ──────────────────────────
+  const updateMember = async (
+    id: string,
+    fields: Record<string, unknown>
+  ) => {
+    setSavingField(id);
+    try {
+      const res = await fetch("/.netlify/functions/clan-list-member", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id, ...fields }),
+      });
+      if (res.ok) {
+        const { member } = await res.json();
+        setMembers((prev) =>
+          prev.map((m) => (m.id === id ? { ...m, ...member } : m))
+        );
+      }
+    } finally {
+      setSavingField(null);
+    }
+  };
 
-    const header = columns.join(",");
-    const csvRows = rows.map((r) =>
-      columns
-        .map((col) => {
-          const val = r.row_data[col];
-          const str = val == null ? "" : String(val);
-          return str.includes(",") || str.includes('"') || str.includes("\n")
-            ? `"${str.replace(/"/g, '""')}"`
-            : str;
-        })
-        .join(",")
-    );
+  // ── Preview promotions ──────────────────────────────────
+  const previewPromotions = async () => {
+    setPromoLoading(true);
+    setPromoResult(null);
+    try {
+      const res = await fetch("/.netlify/functions/clan-promotions-preview", {
+        method: "POST",
+      });
+      const data = await res.json();
+      setPromoPreview(data);
+    } catch {
+      setPromoResult("Failed to load preview.");
+    } finally {
+      setPromoLoading(false);
+    }
+  };
 
-    const blob = new Blob([header + "\n" + csvRows.join("\n")], {
-      type: "text/csv",
-    });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = "clan-list-export.csv";
-    a.click();
-    URL.revokeObjectURL(url);
+  // ── Run promotions ──────────────────────────────────────
+  const runPromotions = async (force = false) => {
+    setPromoRunning(true);
+    setPromoResult(null);
+    setShowForceConfirm(false);
+    try {
+      const res = await fetch("/.netlify/functions/clan-promotions-run", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ force }),
+      });
+      const data = await res.json();
+      if (!data.ok && data.message) {
+        setPromoResult(data.message);
+      } else if (data.ok) {
+        setPromoResult(
+          `Done! ${data.executed} promoted, ${data.failed} failed, ${data.skipped_unresolved} skipped (unresolved).${
+            data.announcement_posted ? " Announcement posted!" : ""
+          }`
+        );
+        fetchMembers(page, debouncedSearch);
+        setPromoPreview(null);
+      }
+    } catch {
+      setPromoResult("Network error.");
+    } finally {
+      setPromoRunning(false);
+    }
   };
 
   // ── Guards ──────────────────────────────────────────────
@@ -246,9 +348,6 @@ const ClanListPage = () => {
       </div>
     );
   }
-
-  // ── Find current list metadata ──────────────────────────
-  const currentList = lists.find((l) => l.id === selectedList);
 
   return (
     <div className="min-h-screen bg-background">
@@ -276,7 +375,7 @@ const ClanListPage = () => {
           </Link>
           <div className="flex items-center gap-2">
             <Users className="w-5 h-5 text-secondary" />
-            <span className="font-display text-lg font-bold neon-text-purple text-secondary hidden sm:block">
+            <span className="font-display text-lg font-bold text-secondary hidden sm:block">
               Clan List
             </span>
           </div>
@@ -305,289 +404,715 @@ const ClanListPage = () => {
       </motion.nav>
 
       {/* ── Content ─────────────────────────────────────── */}
-      <div className="container mx-auto px-4 max-w-6xl py-8">
-        {/* ── Upload + list selection ── */}
-        {!selectedList && (
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="space-y-6"
+      <div className="container mx-auto px-4 max-w-7xl py-6 space-y-6">
+        {/* ── Import + Add Member buttons ── */}
+        <div className="flex flex-wrap gap-3 items-center">
+          <label className="inline-flex items-center gap-2 bg-secondary hover:bg-secondary/90 text-secondary-foreground font-display font-bold px-5 py-2.5 rounded-lg transition cursor-pointer">
+            {uploading ? (
+              <Loader2 className="w-4 h-4 animate-spin" />
+            ) : (
+              <Upload className="w-4 h-4" />
+            )}
+            {uploading ? "Importing..." : "Import CSV"}
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept=".csv,.xlsx,.xls"
+              onChange={handleFileUpload}
+              disabled={uploading}
+              className="hidden"
+            />
+          </label>
+          <button
+            onClick={() => setShowAddForm((v) => !v)}
+            className="inline-flex items-center gap-2 border border-secondary/40 text-secondary hover:bg-secondary/10 font-display font-bold px-5 py-2.5 rounded-lg transition"
           >
-            {/* Upload */}
-            <div className="bg-card border border-secondary/30 rounded-xl p-6 neon-border-purple">
-              <h2 className="font-display text-lg font-bold text-secondary mb-4 flex items-center gap-2">
-                <Upload className="w-5 h-5" /> Upload Clan List
-              </h2>
-              <p className="text-sm text-muted-foreground mb-4">
-                Upload an Excel (.xlsx) file. The first row will be used as
-                column headers.
-              </p>
-              <label className="inline-flex items-center gap-2 bg-secondary hover:bg-secondary/90 text-secondary-foreground font-display font-bold px-6 py-2.5 rounded-lg transition cursor-pointer disabled:opacity-50">
-                {uploading ? (
-                  <Loader2 className="w-4 h-4 animate-spin" />
-                ) : (
-                  <FileSpreadsheet className="w-4 h-4" />
-                )}
-                {uploading ? "Uploading..." : "Choose File"}
-                <input
-                  ref={fileInputRef}
-                  type="file"
-                  accept=".xlsx,.xls"
-                  onChange={handleFileUpload}
-                  disabled={uploading}
-                  className="hidden"
-                />
-              </label>
-              {uploadError && (
-                <p className="text-sm text-destructive mt-3">{uploadError}</p>
-              )}
-            </div>
+            <Plus className="w-4 h-4" />
+            Add Member
+          </button>
+          <div className="flex-1" />
+          <div className="flex gap-3 text-xs text-muted-foreground font-display">
+            <span>
+              {total} member{total !== 1 ? "s" : ""}
+            </span>
+            {promoDueCount > 0 && (
+              <span className="text-green-400">
+                <Zap className="w-3 h-3 inline mr-0.5" />
+                {promoDueCount} promo ready
+              </span>
+            )}
+            {unresolvedCount > 0 && (
+              <span className="text-yellow-400">
+                <AlertTriangle className="w-3 h-3 inline mr-0.5" />
+                {unresolvedCount} unresolved
+              </span>
+            )}
+          </div>
+        </div>
 
-            {/* List selector */}
-            <div>
-              <div className="flex items-center justify-between mb-4">
-                <h2 className="font-display text-lg font-bold text-foreground">
-                  Uploaded Lists
-                </h2>
-                <label className="flex items-center gap-2 text-sm text-muted-foreground cursor-pointer select-none">
-                  <input
-                    type="checkbox"
-                    checked={showArchived}
-                    onChange={(e) => setShowArchived(e.target.checked)}
-                    className="accent-secondary w-4 h-4 rounded"
-                  />
-                  <Archive className="w-4 h-4" />
-                  Show archived
-                </label>
-              </div>
-
-              {listsLoading && (
-                <div className="text-center py-12">
-                  <Loader2 className="w-6 h-6 text-secondary animate-spin mx-auto" />
-                </div>
-              )}
-
-              {!listsLoading && lists.length === 0 && (
-                <p className="text-center text-muted-foreground py-12">
-                  No lists uploaded yet.
-                </p>
-              )}
-
-              <div className="space-y-3">
-                {lists.map((list) => {
-                  const isArchived = !!list.archived_at;
-                  return (
-                    <div
-                      key={list.id}
-                      className={`bg-card border rounded-lg overflow-hidden transition-all ${
-                        isArchived
-                          ? "border-muted opacity-60 hover:opacity-80"
-                          : "border-secondary/30 hover:neon-border-purple"
-                      }`}
-                    >
-                      <div className="flex flex-wrap items-center gap-4 px-5 py-4">
-                        <FileSpreadsheet
-                          className={`w-5 h-5 shrink-0 ${
-                            isArchived
-                              ? "text-muted-foreground"
-                              : "text-secondary"
-                          }`}
-                        />
-                        <div className="flex-1 min-w-0">
-                          <p className="font-display text-sm font-bold text-foreground truncate">
-                            {list.file_name}
-                            {isArchived && (
-                              <span className="ml-2 text-xs text-muted-foreground bg-muted px-2 py-0.5 rounded">
-                                archived
-                              </span>
-                            )}
-                          </p>
-                          <p className="text-xs text-muted-foreground">
-                            {list.row_count} rows · Uploaded{" "}
-                            {new Date(list.uploaded_at).toLocaleDateString()} by{" "}
-                            {list.uploaded_by}
-                          </p>
-                        </div>
-                        <div className="flex items-center gap-2 shrink-0">
-                          {!isArchived && (
-                            <button
-                              onClick={() => {
-                                setSelectedList(list.id);
-                                setPage(1);
-                                setSearch("");
-                              }}
-                              className="text-sm font-display font-bold text-secondary hover:text-secondary/80 transition px-3 py-1.5 rounded-lg border border-secondary/30 hover:bg-secondary/10"
-                            >
-                              View
-                            </button>
-                          )}
-                          {isArchived ? (
-                            <button
-                              onClick={() => archiveList(list.id, "restore")}
-                              disabled={actionLoading === list.id}
-                              className="text-sm text-secondary hover:text-secondary/80 transition"
-                              title="Restore"
-                            >
-                              {actionLoading === list.id ? (
-                                <Loader2 className="w-4 h-4 animate-spin" />
-                              ) : (
-                                <ArchiveRestore className="w-4 h-4" />
-                              )}
-                            </button>
-                          ) : (
-                            <button
-                              onClick={() => archiveList(list.id, "archive")}
-                              disabled={actionLoading === list.id}
-                              className="text-sm text-muted-foreground hover:text-destructive transition"
-                              title="Archive"
-                            >
-                              {actionLoading === list.id ? (
-                                <Loader2 className="w-4 h-4 animate-spin" />
-                              ) : (
-                                <Trash2 className="w-4 h-4" />
-                              )}
-                            </button>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-          </motion.div>
+        {/* ── Upload result ── */}
+        {uploadError && (
+          <div className="bg-destructive/10 border border-destructive/30 text-destructive text-sm rounded-lg px-4 py-3">
+            {uploadError}
+          </div>
+        )}
+        {uploadResult && (
+          <div className="bg-green-500/10 border border-green-500/30 text-green-400 text-sm rounded-lg px-4 py-3">
+            Import complete: {uploadResult.imported} imported,{" "}
+            {uploadResult.updated} updated, {uploadResult.unresolved}{" "}
+            unresolved.
+            {uploadResult.errors.length > 0 && (
+              <details className="mt-2">
+                <summary className="cursor-pointer text-xs">
+                  {uploadResult.errors.length} error(s)
+                </summary>
+                <ul className="mt-1 text-xs space-y-0.5">
+                  {uploadResult.errors.map((e, i) => (
+                    <li key={i}>{e}</li>
+                  ))}
+                </ul>
+              </details>
+            )}
+          </div>
         )}
 
-        {/* ── Table view (selected list) ── */}
-        {selectedList && (
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="space-y-4"
+        {/* ── Add member form ── */}
+        <AnimatePresence>
+          {showAddForm && (
+            <motion.div
+              initial={{ opacity: 0, height: 0 }}
+              animate={{ opacity: 1, height: "auto" }}
+              exit={{ opacity: 0, height: 0 }}
+              className="overflow-hidden"
+            >
+              <div className="bg-card border border-secondary/30 rounded-xl p-5 space-y-4">
+                <div className="flex items-center justify-between">
+                  <h3 className="font-display font-bold text-secondary text-sm">
+                    Add New Member
+                  </h3>
+                  <button
+                    onClick={() => setShowAddForm(false)}
+                    className="text-muted-foreground hover:text-foreground"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
+                  <div>
+                    <label className="text-xs text-muted-foreground mb-1 block">
+                      Discord Name *
+                    </label>
+                    <input
+                      value={addForm.discord_name}
+                      onChange={(e) =>
+                        setAddForm((f) => ({
+                          ...f,
+                          discord_name: e.target.value,
+                        }))
+                      }
+                      className="w-full bg-muted border border-border rounded-lg px-3 py-2 text-sm text-foreground focus:ring-2 focus:ring-secondary/50 focus:outline-none"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-xs text-muted-foreground mb-1 block">
+                      IGN *
+                    </label>
+                    <input
+                      value={addForm.ign}
+                      onChange={(e) =>
+                        setAddForm((f) => ({ ...f, ign: e.target.value }))
+                      }
+                      className="w-full bg-muted border border-border rounded-lg px-3 py-2 text-sm text-foreground focus:ring-2 focus:ring-secondary/50 focus:outline-none"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-xs text-muted-foreground mb-1 block">
+                      UID *
+                    </label>
+                    <input
+                      value={addForm.uid}
+                      onChange={(e) =>
+                        setAddForm((f) => ({ ...f, uid: e.target.value }))
+                      }
+                      className="w-full bg-muted border border-border rounded-lg px-3 py-2 text-sm text-foreground focus:ring-2 focus:ring-secondary/50 focus:outline-none"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-xs text-muted-foreground mb-1 block">
+                      Join Date *
+                    </label>
+                    <input
+                      type="date"
+                      value={addForm.join_date}
+                      onChange={(e) =>
+                        setAddForm((f) => ({
+                          ...f,
+                          join_date: e.target.value,
+                        }))
+                      }
+                      className="w-full bg-muted border border-border rounded-lg px-3 py-2 text-sm text-foreground focus:ring-2 focus:ring-secondary/50 focus:outline-none"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-xs text-muted-foreground mb-1 block">
+                      Status
+                    </label>
+                    <select
+                      value={addForm.status}
+                      onChange={(e) =>
+                        setAddForm((f) => ({
+                          ...f,
+                          status: e.target.value as "active" | "inactive",
+                        }))
+                      }
+                      className="w-full bg-muted border border-border rounded-lg px-3 py-2 text-sm text-foreground focus:ring-2 focus:ring-secondary/50 focus:outline-none"
+                    >
+                      <option value="active">Active</option>
+                      <option value="inactive">Inactive</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="text-xs text-muted-foreground mb-1 block">
+                      Rank
+                    </label>
+                    <select
+                      value={addForm.rank_current}
+                      onChange={(e) =>
+                        setAddForm((f) => ({
+                          ...f,
+                          rank_current: e.target.value,
+                        }))
+                      }
+                      className="w-full bg-muted border border-border rounded-lg px-3 py-2 text-sm text-foreground focus:ring-2 focus:ring-secondary/50 focus:outline-none"
+                    >
+                      {RANKS.map((r) => (
+                        <option key={r} value={r}>
+                          {r}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  <div className="flex items-end pb-1">
+                    <label className="flex items-center gap-2 text-sm text-foreground cursor-pointer select-none">
+                      <input
+                        type="checkbox"
+                        checked={addForm.has_420_tag}
+                        onChange={(e) =>
+                          setAddForm((f) => ({
+                            ...f,
+                            has_420_tag: e.target.checked,
+                          }))
+                        }
+                        className="accent-secondary w-4 h-4 rounded"
+                      />
+                      Has 420 Tag
+                    </label>
+                  </div>
+                </div>
+                {addError && (
+                  <p className="text-sm text-destructive">{addError}</p>
+                )}
+                <button
+                  onClick={handleAddMember}
+                  disabled={addSaving}
+                  className="inline-flex items-center gap-2 bg-secondary hover:bg-secondary/90 text-secondary-foreground font-display font-bold px-5 py-2 rounded-lg transition disabled:opacity-50"
+                >
+                  {addSaving ? (
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                  ) : (
+                    <Save className="w-4 h-4" />
+                  )}
+                  Save Member
+                </button>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        {/* ── Search + filters ── */}
+        <div className="flex flex-wrap gap-3 items-center">
+          <div className="flex-1 min-w-[200px] relative">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+            <input
+              type="text"
+              value={search}
+              placeholder="Search by name, IGN, or UID..."
+              onChange={(e) => handleSearchChange(e.target.value)}
+              className="w-full bg-muted border border-border rounded-lg pl-9 pr-4 py-2.5 text-sm text-foreground placeholder:text-muted-foreground/50 focus:outline-none focus:ring-2 focus:ring-secondary/50 transition"
+            />
+          </div>
+          <select
+            value={statusFilter}
+            onChange={(e) => {
+              setStatusFilter(e.target.value);
+              setPage(1);
+            }}
+            className="bg-muted border border-border rounded-lg px-3 py-2.5 text-sm text-foreground focus:ring-2 focus:ring-secondary/50 focus:outline-none"
           >
-            {/* Back + meta */}
-            <div className="flex items-center gap-4 flex-wrap">
+            <option value="">All Status</option>
+            <option value="active">Active</option>
+            <option value="inactive">Inactive</option>
+          </select>
+          <select
+            value={tagFilter}
+            onChange={(e) => {
+              setTagFilter(e.target.value);
+              setPage(1);
+            }}
+            className="bg-muted border border-border rounded-lg px-3 py-2.5 text-sm text-foreground focus:ring-2 focus:ring-secondary/50 focus:outline-none"
+          >
+            <option value="">All Tags</option>
+            <option value="true">Has 420 Tag</option>
+            <option value="false">No 420 Tag</option>
+          </select>
+          <select
+            value={promoFilter}
+            onChange={(e) => {
+              setPromoFilter(e.target.value);
+              setPage(1);
+            }}
+            className="bg-muted border border-border rounded-lg px-3 py-2.5 text-sm text-foreground focus:ring-2 focus:ring-secondary/50 focus:outline-none"
+          >
+            <option value="">All Promotion</option>
+            <option value="true">Promotion Due</option>
+            <option value="false">No Promotion</option>
+          </select>
+        </div>
+
+        {/* ── Table (desktop) / Card view (mobile) ── */}
+        {membersLoading && (
+          <div className="text-center py-12">
+            <Loader2 className="w-6 h-6 text-secondary animate-spin mx-auto" />
+          </div>
+        )}
+
+        {!membersLoading && members.length === 0 && (
+          <p className="text-center text-muted-foreground py-12">
+            {debouncedSearch
+              ? "No members match your search."
+              : "No members yet. Import a CSV or add manually."}
+          </p>
+        )}
+
+        {!membersLoading && members.length > 0 && (
+          <>
+            {/* Desktop table */}
+            <div className="hidden lg:block overflow-x-auto rounded-lg border border-secondary/20">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="bg-secondary/10 border-b border-secondary/20">
+                    {[
+                      "Discord Name",
+                      "IGN",
+                      "UID",
+                      "Join Date",
+                      "Days",
+                      "420 Tag",
+                      "Status",
+                      "Rank",
+                      "Next Rank",
+                      "Info",
+                    ].map((h) => (
+                      <th
+                        key={h}
+                        className={`font-display font-bold text-secondary px-3 py-3 text-xs uppercase tracking-wider whitespace-nowrap ${
+                          h === "420 Tag" || h === "Info"
+                            ? "text-center"
+                            : "text-left"
+                        }`}
+                      >
+                        {h}
+                      </th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {members.map((m, i) => (
+                    <tr
+                      key={m.id}
+                      className={`border-b border-border/50 ${
+                        i % 2 === 0 ? "bg-card" : "bg-muted/30"
+                      } hover:bg-secondary/5 transition ${
+                        m.promote_eligible ? "ring-1 ring-green-500/30" : ""
+                      }`}
+                    >
+                      <td className="px-3 py-2.5 text-foreground whitespace-nowrap max-w-[160px] truncate">
+                        {m.discord_name}
+                        {m.needs_resolution && (
+                          <AlertTriangle
+                            className="w-3 h-3 text-yellow-400 inline ml-1"
+                            title="Needs Discord ID resolution"
+                          />
+                        )}
+                      </td>
+                      <td className="px-3 py-2.5 text-foreground whitespace-nowrap">
+                        {m.ign}
+                      </td>
+                      <td className="px-3 py-2.5 text-foreground whitespace-nowrap font-mono text-xs">
+                        {m.uid}
+                      </td>
+                      <td className="px-3 py-2.5 text-muted-foreground whitespace-nowrap text-xs">
+                        {new Date(m.join_date).toLocaleDateString()}
+                      </td>
+                      <td className="px-3 py-2.5 text-foreground whitespace-nowrap font-mono">
+                        {m.time_in_clan_days}
+                      </td>
+                      <td className="px-3 py-2.5 text-center">
+                        <input
+                          type="checkbox"
+                          checked={m.has_420_tag}
+                          onChange={(e) =>
+                            updateMember(m.id, {
+                              has_420_tag: e.target.checked,
+                            })
+                          }
+                          disabled={savingField === m.id}
+                          className="accent-secondary w-4 h-4 rounded cursor-pointer"
+                        />
+                      </td>
+                      <td className="px-3 py-2.5 whitespace-nowrap">
+                        <select
+                          value={m.status}
+                          onChange={(e) =>
+                            updateMember(m.id, { status: e.target.value })
+                          }
+                          disabled={savingField === m.id}
+                          className={`bg-transparent border border-border/50 rounded px-2 py-1 text-xs font-display font-bold cursor-pointer focus:outline-none focus:ring-1 focus:ring-secondary/50 ${
+                            m.status === "active"
+                              ? "text-green-400"
+                              : "text-red-400"
+                          }`}
+                        >
+                          <option value="active">Active</option>
+                          <option value="inactive">Inactive</option>
+                        </select>
+                      </td>
+                      <td className="px-3 py-2.5 whitespace-nowrap">
+                        <span className="font-display text-xs font-bold text-secondary">
+                          {m.rank_current}
+                        </span>
+                      </td>
+                      <td className="px-3 py-2.5 whitespace-nowrap">
+                        {m.rank_next && m.rank_current !== "Major" ? (
+                          <span
+                            className={`font-display text-xs font-bold ${
+                              m.promote_eligible
+                                ? "text-green-400"
+                                : "text-muted-foreground"
+                            }`}
+                          >
+                            {m.rank_next}
+                            {m.promote_eligible && (
+                              <Zap className="w-3 h-3 inline ml-1" />
+                            )}
+                          </span>
+                        ) : (
+                          <span className="text-xs text-muted-foreground/50">
+                            —
+                          </span>
+                        )}
+                      </td>
+                      <td className="px-3 py-2.5 text-center">
+                        {savingField === m.id ? (
+                          <Loader2 className="w-3 h-3 animate-spin text-secondary mx-auto" />
+                        ) : m.promote_reason ? (
+                          <span
+                            className="text-xs text-green-400 cursor-help"
+                            title={m.promote_reason}
+                          >
+                            <Check className="w-3 h-3 inline" />
+                          </span>
+                        ) : null}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+
+            {/* Mobile card view */}
+            <div className="lg:hidden space-y-3">
+              {members.map((m) => (
+                <div
+                  key={m.id}
+                  className={`bg-card border rounded-lg p-4 space-y-2 ${
+                    m.promote_eligible
+                      ? "border-green-500/40"
+                      : "border-secondary/20"
+                  }`}
+                >
+                  <div className="flex items-center justify-between">
+                    <div className="min-w-0">
+                      <p className="font-display font-bold text-sm text-foreground truncate">
+                        {m.discord_name}
+                        {m.needs_resolution && (
+                          <AlertTriangle className="w-3 h-3 text-yellow-400 inline ml-1" />
+                        )}
+                      </p>
+                      <p className="text-xs text-muted-foreground">
+                        {m.ign} · UID: {m.uid}
+                      </p>
+                    </div>
+                    <span className="font-display text-xs font-bold text-secondary shrink-0 ml-2">
+                      {m.rank_current}
+                    </span>
+                  </div>
+                  <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted-foreground">
+                    <span>
+                      Joined {new Date(m.join_date).toLocaleDateString()}
+                    </span>
+                    <span className="font-mono">
+                      {m.time_in_clan_days} days
+                    </span>
+                    {m.promote_eligible && m.rank_next && (
+                      <span className="text-green-400 font-bold">
+                        <Zap className="w-3 h-3 inline mr-0.5" />→ {m.rank_next}
+                      </span>
+                    )}
+                  </div>
+                  <div className="flex items-center gap-4">
+                    <label className="flex items-center gap-1.5 text-xs cursor-pointer select-none">
+                      <input
+                        type="checkbox"
+                        checked={m.has_420_tag}
+                        onChange={(e) =>
+                          updateMember(m.id, {
+                            has_420_tag: e.target.checked,
+                          })
+                        }
+                        disabled={savingField === m.id}
+                        className="accent-secondary w-3.5 h-3.5 rounded"
+                      />
+                      420 Tag
+                    </label>
+                    <select
+                      value={m.status}
+                      onChange={(e) =>
+                        updateMember(m.id, { status: e.target.value })
+                      }
+                      disabled={savingField === m.id}
+                      className={`bg-transparent border border-border/50 rounded px-2 py-0.5 text-xs font-display font-bold cursor-pointer focus:outline-none ${
+                        m.status === "active"
+                          ? "text-green-400"
+                          : "text-red-400"
+                      }`}
+                    >
+                      <option value="active">Active</option>
+                      <option value="inactive">Inactive</option>
+                    </select>
+                    {savingField === m.id && (
+                      <Loader2 className="w-3 h-3 animate-spin text-secondary" />
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </>
+        )}
+
+        {/* ── Pagination ── */}
+        {totalPages > 1 && (
+          <div className="flex items-center justify-center gap-4 pt-2">
+            <button
+              onClick={() => setPage((p) => Math.max(1, p - 1))}
+              disabled={page <= 1}
+              className="flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground transition disabled:opacity-30"
+            >
+              <ChevronLeft className="w-4 h-4" /> Previous
+            </button>
+            <span className="text-sm text-muted-foreground font-display">
+              Page {page} of {totalPages}
+            </span>
+            <button
+              onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+              disabled={page >= totalPages}
+              className="flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground transition disabled:opacity-30"
+            >
+              Next <ChevronRight className="w-4 h-4" />
+            </button>
+          </div>
+        )}
+
+        {/* ── Promotions section ── */}
+        <div className="border-t border-secondary/20 pt-6 space-y-4">
+          <h2 className="font-display text-lg font-bold text-secondary flex items-center gap-2">
+            <Zap className="w-5 h-5" /> Promotions
+          </h2>
+
+          <div className="flex flex-wrap gap-3 items-center">
+            <button
+              onClick={previewPromotions}
+              disabled={promoLoading}
+              className="inline-flex items-center gap-2 border border-secondary/40 text-secondary hover:bg-secondary/10 font-display font-bold px-5 py-2.5 rounded-lg transition disabled:opacity-50"
+            >
+              {promoLoading ? (
+                <Loader2 className="w-4 h-4 animate-spin" />
+              ) : (
+                <Search className="w-4 h-4" />
+              )}
+              Preview Promotions
+            </button>
+
+            {promoPreview && promoPreview.threshold_met && (
               <button
-                onClick={() => {
-                  setSelectedList(null);
-                  setRows([]);
-                  setColumns([]);
-                }}
-                className="flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground transition"
+                onClick={() => runPromotions(false)}
+                disabled={promoRunning}
+                className="inline-flex items-center gap-2 bg-green-600 hover:bg-green-700 text-white font-display font-bold px-5 py-2.5 rounded-lg transition disabled:opacity-50"
               >
-                <ChevronLeft className="w-4 h-4" /> Back to lists
+                {promoRunning ? (
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                ) : (
+                  <Zap className="w-4 h-4" />
+                )}
+                Run Promotions
               </button>
-              {currentList && (
-                <div className="flex-1 min-w-0">
-                  <h2 className="font-display text-lg font-bold text-secondary truncate">
-                    {currentList.file_name}
-                  </h2>
-                  <p className="text-xs text-muted-foreground">
-                    {total} rows · Uploaded{" "}
-                    {new Date(currentList.uploaded_at).toLocaleDateString()}
-                  </p>
+            )}
+
+            {promoPreview &&
+              !promoPreview.threshold_met &&
+              promoPreview.total_due > 0 && (
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="text-sm text-yellow-400 font-display">
+                    {promoPreview.total_due} promotion
+                    {promoPreview.total_due !== 1 ? "s" : ""} ready, waiting for
+                    5+ threshold
+                  </span>
+                  {!showForceConfirm ? (
+                    <button
+                      onClick={() => setShowForceConfirm(true)}
+                      className="text-xs border border-yellow-400/40 text-yellow-400 hover:bg-yellow-400/10 px-3 py-1.5 rounded-lg font-display font-bold transition"
+                    >
+                      Force Run
+                    </button>
+                  ) : (
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs text-destructive">
+                        Are you sure?
+                      </span>
+                      <button
+                        onClick={() => runPromotions(true)}
+                        disabled={promoRunning}
+                        className="text-xs bg-destructive text-destructive-foreground px-3 py-1.5 rounded-lg font-display font-bold transition disabled:opacity-50"
+                      >
+                        {promoRunning ? "Running..." : "Confirm"}
+                      </button>
+                      <button
+                        onClick={() => setShowForceConfirm(false)}
+                        className="text-xs text-muted-foreground hover:text-foreground"
+                      >
+                        Cancel
+                      </button>
+                    </div>
+                  )}
                 </div>
               )}
+          </div>
+
+          {promoResult && (
+            <div className="bg-secondary/10 border border-secondary/30 text-secondary text-sm rounded-lg px-4 py-3">
+              {promoResult}
             </div>
+          )}
 
-            {/* Search + export */}
-            <div className="flex gap-3 flex-wrap">
-              <div className="flex-1 min-w-[200px] relative">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                <input
-                  type="text"
-                  placeholder="Search all columns..."
-                  onChange={(e) => handleSearchChange(e.target.value)}
-                  className="w-full bg-muted border border-border rounded-lg pl-9 pr-4 py-2.5 text-sm text-foreground placeholder:text-muted-foreground/50 focus:outline-none focus:ring-2 focus:ring-secondary/50 transition"
-                />
-              </div>
-              <button
-                onClick={exportCSV}
-                disabled={rows.length === 0}
-                className="flex items-center gap-2 text-sm font-display font-bold text-secondary border border-secondary/30 hover:bg-secondary/10 px-4 py-2.5 rounded-lg transition disabled:opacity-50"
-              >
-                <Download className="w-4 h-4" /> Export CSV
-              </button>
-            </div>
-
-            {/* Table */}
-            {rowsLoading && (
-              <div className="text-center py-12">
-                <Loader2 className="w-6 h-6 text-secondary animate-spin mx-auto" />
-              </div>
-            )}
-
-            {!rowsLoading && rows.length === 0 && (
-              <p className="text-center text-muted-foreground py-12">
-                {search ? "No rows match your search." : "No data in this list."}
-              </p>
-            )}
-
-            {!rowsLoading && rows.length > 0 && (
+          {/* Preview table */}
+          {promoPreview && promoPreview.promotions.length > 0 && (
+            <div className="space-y-3">
+              <h3 className="font-display text-sm font-bold text-foreground">
+                Eligible Members ({promoPreview.total_due})
+              </h3>
               <div className="overflow-x-auto rounded-lg border border-secondary/20">
                 <table className="w-full text-sm">
                   <thead>
                     <tr className="bg-secondary/10 border-b border-secondary/20">
-                      {columns.map((col) => (
-                        <th
-                          key={col}
-                          className="text-left font-display font-bold text-secondary px-4 py-3 whitespace-nowrap text-xs uppercase tracking-wider"
-                        >
-                          {col}
-                        </th>
-                      ))}
+                      {["Name", "IGN", "Days", "From", "To", "Status"].map(
+                        (h) => (
+                          <th
+                            key={h}
+                            className={`font-display font-bold text-secondary px-3 py-2 text-xs uppercase ${
+                              h === "Status" ? "text-center" : "text-left"
+                            }`}
+                          >
+                            {h}
+                          </th>
+                        )
+                      )}
                     </tr>
                   </thead>
                   <tbody>
-                    {rows.map((row, i) => (
+                    {promoPreview.promotions.map((p) => (
                       <tr
-                        key={row.id}
-                        className={`border-b border-border/50 ${
-                          i % 2 === 0 ? "bg-card" : "bg-muted/30"
-                        } hover:bg-secondary/5 transition`}
+                        key={p.member_id}
+                        className="border-b border-border/50 hover:bg-secondary/5"
                       >
-                        {columns.map((col) => (
-                          <td
-                            key={col}
-                            className="px-4 py-2.5 text-foreground whitespace-nowrap max-w-[300px] truncate"
-                            title={String(row.row_data[col] ?? "")}
-                          >
-                            {row.row_data[col] != null
-                              ? String(row.row_data[col])
-                              : "—"}
-                          </td>
-                        ))}
+                        <td className="px-3 py-2 text-foreground">
+                          {p.discord_name}
+                        </td>
+                        <td className="px-3 py-2 text-foreground">{p.ign}</td>
+                        <td className="px-3 py-2 font-mono">
+                          {p.time_in_clan_days}
+                        </td>
+                        <td className="px-3 py-2 text-muted-foreground">
+                          {p.from_rank}
+                        </td>
+                        <td className="px-3 py-2 text-green-400 font-bold">
+                          {p.to_rank}
+                        </td>
+                        <td className="px-3 py-2 text-center">
+                          {p.needs_resolution ? (
+                            <span
+                              className="text-yellow-400 text-xs"
+                              title="No Discord ID — will be skipped"
+                            >
+                              <AlertTriangle className="w-3 h-3 inline" />{" "}
+                              Unresolved
+                            </span>
+                          ) : (
+                            <span className="text-green-400 text-xs">
+                              <Check className="w-3 h-3 inline" /> Ready
+                            </span>
+                          )}
+                        </td>
                       </tr>
                     ))}
                   </tbody>
                 </table>
               </div>
-            )}
+            </div>
+          )}
 
-            {/* Pagination */}
-            {totalPages > 1 && (
-              <div className="flex items-center justify-center gap-4 pt-2">
-                <button
-                  onClick={() => setPage((p) => Math.max(1, p - 1))}
-                  disabled={page <= 1}
-                  className="flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground transition disabled:opacity-30"
-                >
-                  <ChevronLeft className="w-4 h-4" /> Previous
-                </button>
-                <span className="text-sm text-muted-foreground font-display">
-                  Page {page} of {totalPages}
-                </span>
-                <button
-                  onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
-                  disabled={page >= totalPages}
-                  className="flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground transition disabled:opacity-30"
-                >
-                  Next <ChevronRight className="w-4 h-4" />
-                </button>
+          {/* Unresolved members */}
+          {promoPreview && promoPreview.unresolved.length > 0 && (
+            <div className="space-y-2">
+              <h3 className="font-display text-sm font-bold text-yellow-400 flex items-center gap-1">
+                <AlertTriangle className="w-4 h-4" /> Unresolved Members (
+                {promoPreview.unresolved.length})
+              </h3>
+              <p className="text-xs text-muted-foreground">
+                These members have no Discord ID linked and will be skipped
+                during promotion. Bot cannot change roles without a Discord ID.
+              </p>
+              <div className="space-y-1">
+                {promoPreview.unresolved.map((u) => (
+                  <div
+                    key={u.member_id}
+                    className="text-xs text-muted-foreground bg-muted/30 px-3 py-2 rounded"
+                  >
+                    <span className="text-foreground font-bold">
+                      {u.discord_name}
+                    </span>{" "}
+                    — {u.ign} (UID: {u.uid}) — {u.from_rank} → {u.to_rank}
+                  </div>
+                ))}
               </div>
-            )}
-          </motion.div>
-        )}
+            </div>
+          )}
+
+          {promoPreview && promoPreview.promotions.length === 0 && (
+            <p className="text-sm text-muted-foreground">
+              No members are currently eligible for promotion.
+            </p>
+          )}
+        </div>
       </div>
     </div>
   );
