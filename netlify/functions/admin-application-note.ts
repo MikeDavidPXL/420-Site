@@ -66,6 +66,7 @@ const handler: Handler = async (event) => {
       application_id,
       note: note.trim(),
       created_by: session.discord_id,
+      created_by_username: session.username || null,
     });
 
   if (insertErr) {
@@ -86,7 +87,7 @@ const handler: Handler = async (event) => {
   // ── Return updated notes list ─────────────────────────
   const { data: notes } = await supabase
     .from("application_notes")
-    .select("id, note, created_at, created_by")
+    .select("id, note, created_at, created_by, created_by_username")
     .eq("application_id", application_id)
     .order("created_at", { ascending: false });
 

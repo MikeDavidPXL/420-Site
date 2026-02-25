@@ -620,11 +620,11 @@ function PackNavbar({
                 )}
               </button>
               {shieldOpen && (
-                <div className="absolute right-0 top-full mt-2 w-48 bg-card border border-secondary/40 rounded-lg shadow-xl shadow-secondary/10 overflow-hidden z-50">
+                <div className="absolute right-0 top-full mt-2 w-48 bg-card/95 backdrop-blur-sm border border-secondary/40 rounded-xl shadow-2xl shadow-secondary/20 z-50">
                   <Link
                     to="/admin"
                     onClick={() => setShieldOpen(false)}
-                    className="flex items-center gap-2 px-4 py-3 text-sm font-display font-bold text-secondary hover:bg-secondary/10 transition"
+                    className="flex items-center gap-2 px-4 py-3 text-sm font-display font-bold text-secondary hover:bg-secondary/15 transition rounded-t-xl"
                   >
                     <Shield className="w-4 h-4" />
                     Admin Panel
@@ -637,7 +637,7 @@ function PackNavbar({
                   <Link
                     to="/clan-list"
                     onClick={() => setShieldOpen(false)}
-                    className="flex items-center gap-2 px-4 py-3 text-sm font-display font-bold text-secondary hover:bg-secondary/10 transition border-t border-secondary/20"
+                    className="flex items-center gap-2 px-4 py-3 text-sm font-display font-bold text-secondary hover:bg-secondary/15 transition border-t border-secondary/20 rounded-b-xl"
                   >
                     <Users className="w-4 h-4" />
                     Clan List

@@ -25,7 +25,7 @@ const handler: Handler = async (event) => {
 
   let query = supabase
     .from("applications")
-    .select("*, application_notes(id, note, created_at, created_by)")
+    .select("*, application_notes(id, note, created_at, created_by, created_by_username)")
     .order("created_at", { ascending: false });
 
   if (status) {

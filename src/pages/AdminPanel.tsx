@@ -33,6 +33,7 @@ interface AdminNote {
   note: string;
   created_at: string;
   created_by: string;
+  created_by_username?: string | null;
 }
 
 interface AdminApp {
@@ -688,7 +689,7 @@ const AdminPanel = () => {
                                 {n.note}
                               </p>
                               <p className="text-xs text-muted-foreground mt-1">
-                                {n.created_by} &middot;{" "}
+                                {n.created_by_username || n.created_by} ·{" "}
                                 {new Date(n.created_at).toLocaleString()}
                               </p>
                             </div>
