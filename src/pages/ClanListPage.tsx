@@ -1791,10 +1791,10 @@ const ClanListPage = () => {
             </div>
           )}
         </div>
-      </div>
 
-      {/* Queued Promotion Management Section */}
-      <PromotionQueueSection />
+        {/* Queued Promotion Management Section */}
+        <PromotionQueueSection />
+      </div>
     </div>
   );
 };
