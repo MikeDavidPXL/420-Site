@@ -287,11 +287,15 @@ export async function postChannelMessage(
 // ── Application log channel ID ──────────────────────────────
 export const APP_LOG_CHANNEL_ID = "1374059564168773863";
 
-// ── Post application log with staff ping ────────────────────
-export async function postAppLog(content: string): Promise<boolean> {
-  const staffPingRoleId = process.env.DISCORD_STAFF_PING_ROLE_ID;
-  const ping = staffPingRoleId ? `<@&${staffPingRoleId}>\n` : "";
-  const fullContent = ping + content;
+// ── Post application log (ping optional) ────────────────────
+export async function postAppLog(content: string, withPing = false): Promise<boolean> {
+  let fullContent = content;
+  if (withPing) {
+    const staffPingRoleId = process.env.DISCORD_STAFF_PING_ROLE_ID;
+    if (staffPingRoleId) {
+      fullContent = `<@&${staffPingRoleId}>\n` + content;
+    }
+  }
   return postChannelMessage(APP_LOG_CHANNEL_ID, fullContent);
 }
 

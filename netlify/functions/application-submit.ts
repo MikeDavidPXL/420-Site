@@ -163,7 +163,7 @@ const handler: Handler = async (event) => {
       `Review: https://420-site.netlify.app/admin`,
     ].join("\n");
 
-    const posted = await postAppLog(logContent);
+    const posted = await postAppLog(logContent, true);
     if (!posted) {
       // Log Discord failure but don't fail submission
       await supabase.from("audit_log").insert({
