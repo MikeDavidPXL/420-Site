@@ -19,7 +19,10 @@ BEGIN
   END IF;
 END $$;
 
--- 2) clan_list_members.discord_id unique when present (allows NULL for old CSV unresolved)
+-- 2) clan_list_members.discord_id must support ON CONFLICT(discord_id)
+-- NOTE: use a NON-partial unique index so Postgres can infer conflict target.
+--       NULL values are still allowed (multiple NULLs are allowed by UNIQUE in Postgres).
+DROP INDEX IF EXISTS uq_clan_list_members_discord_id;
+
 CREATE UNIQUE INDEX IF NOT EXISTS uq_clan_list_members_discord_id
-  ON clan_list_members(discord_id)
-  WHERE discord_id IS NOT NULL;
+  ON clan_list_members(discord_id);
