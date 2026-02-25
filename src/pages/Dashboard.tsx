@@ -85,18 +85,26 @@ const Dashboard = () => {
     );
   }
 
+  // In guild but unverified → must verify via captcha first
+  if (user.is_unverified && !user.is_koth) {
+    return <Navigate to="/verify" replace />;
+  }
+
   // In guild but no KOTH role → must verify first
   if (!user.is_koth) {
     return (
       <GatePage>
         <GateCard
           icon={<ShieldAlert className="w-8 h-8 text-yellow-400" />}
-          title="Verify in Discord"
-          description="You need to verify in the Discord server to get the KOTH Player role before you can apply."
+          title="Verify Your Account"
+          description="You need to verify on the website to unlock the application form."
         >
-          <span className="text-muted-foreground text-sm">
-            Once verified, refresh this page.
-          </span>
+          <Link
+            to="/verify"
+            className="inline-flex items-center gap-2 bg-primary hover:bg-primary/90 text-primary-foreground font-display font-bold px-8 py-3 rounded-lg transition hover:scale-105"
+          >
+            <ShieldAlert className="w-4 h-4" /> Go to Verification
+          </Link>
         </GateCard>
       </GatePage>
     );

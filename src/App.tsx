@@ -10,6 +10,7 @@ import ApplicationForm from "./pages/ApplicationForm";
 import TexturePackPage from "./pages/TexturePackPage";
 import AdminPanel from "./pages/AdminPanel";
 import InstallationPage from "./pages/InstallationPage";
+import VerifyPage from "./pages/VerifyPage";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -24,6 +25,7 @@ const App = () => (
           <Routes>
             <Route path="/" element={<LandingPage />} />
             <Route path="/dashboard" element={<Dashboard />} />
+            <Route path="/verify" element={<VerifyPage />} />
             <Route path="/apply" element={<ApplicationForm />} />
             <Route path="/pack" element={<TexturePackPage />} />
             <Route path="/admin" element={<AdminPanel />} />

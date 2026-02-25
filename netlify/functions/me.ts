@@ -25,17 +25,21 @@ const handler: Handler = async (event) => {
   const isStaff = roles.includes(process.env.DISCORD_STAFF_ROLE_ID!);
   const isPrivate = roles.includes(process.env.DISCORD_MEMBER_ROLE_ID!);
   const isKoth = roles.includes(process.env.DISCORD_KOTH_PLAYER_ROLE_ID!);
+  const isUnverified = roles.includes(process.env.DISCORD_UNVERIFIED_ROLE_ID!);
 
   // ── Effective status: purely based on Discord roles ───────
   // staff/private → "accepted" (has pack access)
   // koth only     → "koth"     (can apply)
+  // unverified    → "unverified" (must captcha verify first)
   // in guild, no roles → "none"
   // not in guild       → "none"
-  let effectiveStatus: "accepted" | "koth" | "none" = "none";
+  let effectiveStatus: "accepted" | "koth" | "unverified" | "none" = "none";
   if (isStaff || isPrivate) {
     effectiveStatus = "accepted";
   } else if (isKoth) {
     effectiveStatus = "koth";
+  } else if (isUnverified) {
+    effectiveStatus = "unverified";
   }
 
   // Get latest application from DB (historical only)
@@ -110,6 +114,7 @@ const handler: Handler = async (event) => {
       is_staff: isStaff,
       is_private: isPrivate,
       is_koth: isKoth,
+      is_unverified: isUnverified,
       effective_status: effectiveStatus,
       application: visibleApp,
     },

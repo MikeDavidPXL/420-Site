@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useRef, useEffect } from "react";
 import { useNavigate, Navigate } from "react-router-dom";
 import { motion } from "framer-motion";
 import { useAuth } from "@/context/AuthContext";
@@ -25,11 +25,20 @@ const ApplicationForm = () => {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [confirmOverride, setConfirmOverride] = useState<string | null>(null);
+  const errorRef = useRef<HTMLDivElement>(null);
+
+  // Scroll to the error/override box whenever it appears
+  useEffect(() => {
+    if ((confirmOverride || error) && errorRef.current) {
+      errorRef.current.scrollIntoView({ behavior: "smooth", block: "center" });
+    }
+  }, [confirmOverride, error]);
 
   // Guard: Discord roles are the truth for access.
-  // staff / private → pack page, no session → login, no koth → dashboard
+  // staff / private → pack page, no session → login, unverified → verify, no koth → dashboard
   if (!authLoading && !user) return <Navigate to="/" replace />;
   if (!authLoading && user && user.effective_status === "accepted") return <Navigate to="/pack" replace />;
+  if (!authLoading && user && user.is_unverified && !user.is_koth) return <Navigate to="/verify" replace />;
   if (!authLoading && user && user.effective_status !== "koth") return <Navigate to="/dashboard" replace />;
 
   if (authLoading) {
@@ -103,7 +112,7 @@ const ApplicationForm = () => {
 
           {/* Confirm override dialog */}
           {confirmOverride && (
-            <div className="bg-yellow-500/10 border border-yellow-500/30 rounded-lg p-4 mb-6 text-center">
+            <div ref={errorRef} className="bg-yellow-500/10 border border-yellow-500/30 rounded-lg p-4 mb-6 text-center">
               <p className="text-sm text-yellow-300 font-display font-bold mb-1">
                 {confirmOverride === "ALREADY_ACCEPTED"
                   ? "You already have an accepted application."
@@ -133,7 +142,7 @@ const ApplicationForm = () => {
           )}
 
           {error && (
-            <div className="bg-destructive/10 border border-destructive/30 rounded-lg p-3 mb-6 text-sm text-destructive text-center">
+            <div ref={!confirmOverride ? errorRef : undefined} className="bg-destructive/10 border border-destructive/30 rounded-lg p-3 mb-6 text-sm text-destructive text-center">
               {error}
             </div>
           )}

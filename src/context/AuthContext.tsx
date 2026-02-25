@@ -15,7 +15,8 @@ export interface User {
   is_staff: boolean;
   is_private: boolean;
   is_koth: boolean;
-  effective_status: "accepted" | "koth" | "none";
+  is_unverified: boolean;
+  effective_status: "accepted" | "koth" | "unverified" | "none";
   application: Application | null;
 }
 
