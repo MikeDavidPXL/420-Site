@@ -188,3 +188,19 @@ select option:checked {
 select option:hover {
   background-color: hsl(230 25% 20%);
 }
+
+/* Subtle pulse animation for ban report button */
+@keyframes pulse-subtle {
+  0%, 100% {
+    opacity: 1;
+    box-shadow: 0 0 0 0 rgba(220, 38, 38, 0);
+  }
+  50% {
+    opacity: 0.9;
+    box-shadow: 0 0 0 4px rgba(220, 38, 38, 0.3);
+  }
+}
+
+.animate-pulse-subtle {
+  animation: pulse-subtle 2.5s ease-in-out infinite;
+}

@@ -12,6 +12,7 @@ import AdminPanel from "./pages/AdminPanel";
 import InstallationPage from "./pages/InstallationPage";
 import VerifyPage from "./pages/VerifyPage";
 import ClanListPage from "./pages/ClanListPage";
+import BanReportPage from "./pages/BanReportPage";
 import NotFound from "./pages/NotFound";
 import ClanListErrorBoundary from "./components/ClanListErrorBoundary";
 
@@ -40,6 +41,7 @@ const App = () => (
               }
             />
             <Route path="/installation" element={<InstallationPage />} />
+            <Route path="/ban-report" element={<BanReportPage />} />
             <Route path="*" element={<NotFound />} />
           </Routes>
         </BrowserRouter>
