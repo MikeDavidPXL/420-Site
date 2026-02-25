@@ -18,15 +18,18 @@ CREATE TABLE promotion_queue (
   confirmed_by TEXT,
   processed_at TIMESTAMP WITH TIME ZONE,
   processed_by TEXT,
-  error TEXT,
-  
-  CONSTRAINT one_active_per_member UNIQUE (member_id) WHERE status IN ('queued', 'confirmed')
+  error TEXT
 );
 
 -- Create indexes for efficient querying
 CREATE INDEX idx_promotion_queue_status ON promotion_queue(status);
 CREATE INDEX idx_promotion_queue_member_id ON promotion_queue(member_id);
 CREATE INDEX idx_promotion_queue_created_at ON promotion_queue(created_at DESC);
+
+-- Create partial unique index to prevent duplicate active queue items per member
+CREATE UNIQUE INDEX idx_promotion_queue_one_active_per_member 
+  ON promotion_queue(member_id) 
+  WHERE status IN ('queued', 'confirmed');
 
 -- Add comment for clarity
 COMMENT ON TABLE promotion_queue IS 'Queue for pending promotion candidates awaiting staff confirmation before role assignment and announcement';

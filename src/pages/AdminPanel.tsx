@@ -19,6 +19,7 @@ import {
   ArchiveRestore,
   StickyNote,
   Send,
+  Users,
 } from "lucide-react";
 import clanLogo from "@/assets/clan-logo.png";
 
@@ -308,7 +309,7 @@ const AdminPanel = () => {
             <ArrowLeft className="w-4 h-4" />
             <img src={clanLogo} alt="420 Clan Logo" className="w-8 h-8 rounded-full" />
             <span className="font-display text-sm font-bold hidden sm:block">
-              Back to Pack
+              Back to homepage
             </span>
           </Link>
           <div className="flex items-center gap-2">
@@ -318,6 +319,21 @@ const AdminPanel = () => {
             </span>
           </div>
           <div className="flex items-center gap-3">
+            {/* Navigation to Clan List */}
+            <Link
+              to="/staff/clan"
+              className="px-3 py-1.5 text-sm font-display font-bold bg-secondary/20 hover:bg-secondary/30 text-secondary rounded-lg transition border border-secondary/30 hidden sm:block"
+              title="Go to Clan List"
+            >
+              Clan List
+            </Link>
+            <Link
+              to="/staff/clan"
+              className="px-2 py-1.5 text-secondary hover:bg-secondary/20 rounded transition sm:hidden"
+              title="Clan List"
+            >
+              <Users className="w-4 h-4" />
+            </Link>
             <div className="flex items-center gap-2">
               {user!.avatar && (
                 <img

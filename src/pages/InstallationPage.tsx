@@ -124,7 +124,7 @@ const InstallationPage = () => {
             <ArrowLeft className="w-4 h-4" />
             <img src={clanLogo} alt="420 Clan Logo" className="w-8 h-8 rounded-full" />
             <span className="font-display text-sm font-bold hidden sm:block">
-              Back to Pack
+              Back to homepage
             </span>
           </Link>
           <div className="flex items-center gap-2">

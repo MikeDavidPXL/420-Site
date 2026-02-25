@@ -20,6 +20,7 @@ import {
   Zap,
   Check,
   Trash2,
+  Shield,
 } from "lucide-react";
 import * as XLSX from "xlsx";
 import clanLogo from "@/assets/clan-logo.png";
@@ -681,7 +682,7 @@ const ClanListPage = () => {
               className="w-8 h-8 rounded-full"
             />
             <span className="font-display text-sm font-bold hidden sm:block">
-              Back to Pack
+              Back to homepage
             </span>
           </Link>
           <div className="flex items-center gap-2">
@@ -691,6 +692,21 @@ const ClanListPage = () => {
             </span>
           </div>
           <div className="flex items-center gap-3">
+            {/* Navigation to Admin Panel */}
+            <Link
+              to="/admin"
+              className="px-3 py-1.5 text-sm font-display font-bold bg-secondary/20 hover:bg-secondary/30 text-secondary rounded-lg transition border border-secondary/30 hidden sm:block"
+              title="Go to Applications"
+            >
+              Applications
+            </Link>
+            <Link
+              to="/admin"
+              className="px-2 py-1.5 text-secondary hover:bg-secondary/20 rounded transition sm:hidden"
+              title="Applications"
+            >
+              <Shield className="w-4 h-4" />
+            </Link>
             <div className="flex items-center gap-2">
               {user!.avatar && (
                 <img
