@@ -226,8 +226,12 @@ const ClanListPage = () => {
         setBulkResult(data?.error || "Bulk resolve failed.");
         return;
       }
+      const debug = data?.debug;
+      const debugText = debug
+        ? ` UID-resolved: ${debug.uid_resolved}, name-resolved: ${debug.name_resolved}, uid-missing: ${debug.uid_missing}, uid-no-match: ${debug.uid_no_match}, guild-count: ${debug.guild_member_count}.`
+        : "";
       setBulkResult(
-        `Done! ${data.resolved} resolved, ${data.ambiguous} ambiguous, ${data.not_found} not found, ${data.skipped} skipped.`
+        `Done! ${data.resolved} resolved, ${data.ambiguous} ambiguous, ${data.not_found} not found, ${data.skipped} skipped.${debugText}`
       );
       fetchMembers(page, debouncedSearch);
     } catch {
