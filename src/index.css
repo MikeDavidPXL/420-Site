@@ -138,30 +138,38 @@ html {
 /* Native select dropdown styling */
 select {
   appearance: none;
-  background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%236b7280'%3e%3cpath stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M19 9l-7 7-7-7'%3e%3c/path%3e%3c/svg%3e");
+  background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%239333ea'%3e%3cpath stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M19 9l-7 7-7-7'%3e%3c/path%3e%3c/svg%3e");
   background-position: right 0.75rem center;
   background-repeat: no-repeat;
-  background-size: 1rem;
+  background-size: 1.25rem;
   padding-right: 2.5rem;
   cursor: pointer;
+  border-radius: 0.75rem;
+  transition: all 0.2s ease;
+}
+
+select:hover {
+  border-color: hsl(270 80% 60% / 0.5);
 }
 
 select:focus {
   outline: none;
-  box-shadow: 0 0 0 2px hsl(220 90% 55% / 0.3);
+  border-color: hsl(270 80% 60% / 0.6);
+  box-shadow: 0 0 0 3px hsl(270 80% 60% / 0.15), 0 0 12px hsl(270 80% 60% / 0.2);
 }
 
 /* Style the dropdown options */
 select option {
-  background-color: hsl(230 25% 10%);
+  background-color: hsl(230 25% 12%);
   color: hsl(220 20% 90%);
-  padding: 0.5rem;
+  padding: 0.75rem 1rem;
+  border-radius: 0.5rem;
 }
 
 select option:checked {
-  background: linear-gradient(0deg, hsl(220 90% 55% / 0.3) 0%, hsl(220 90% 55% / 0.3) 100%);
+  background: linear-gradient(0deg, hsl(270 80% 60% / 0.35) 0%, hsl(270 80% 60% / 0.35) 100%);
 }
 
 select option:hover {
-  background-color: hsl(220 90% 55% / 0.2);
+  background-color: hsl(270 80% 60% / 0.25);
 }
