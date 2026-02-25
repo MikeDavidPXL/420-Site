@@ -56,18 +56,35 @@ const handler: Handler = async (event) => {
     !isPrivate &&
     !isStaff
   ) {
+    // If user left the guild entirely, also soft-archive the application
+    const shouldArchive = !inGuild;
+
     await supabase
       .from("applications")
-      .update({ status: "revoked", reviewer_note: "Auto-revoked: Private role no longer present" })
+      .update({
+        status: "revoked",
+        reviewer_note: "Auto-revoked: Private role no longer present",
+        ...(shouldArchive
+          ? {
+              archived_at: new Date().toISOString(),
+              archived_by: "system",
+              archive_reason: "left_guild",
+            }
+          : {}),
+      })
       .eq("id", app.id);
 
     // Also log it
     await supabase.from("audit_log").insert({
-      action: "application_auto_revoked",
+      action: shouldArchive
+        ? "application_auto_archived"
+        : "application_auto_revoked",
       target_id: app.id,
       actor_id: "system",
       details: {
-        reason: "User no longer has Private role in Discord",
+        reason: shouldArchive
+          ? "User left the guild — application archived"
+          : "User no longer has Private role in Discord",
         discord_id: session.discord_id,
         in_guild: inGuild,
         had_koth: isKoth,

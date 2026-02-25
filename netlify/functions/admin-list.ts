@@ -21,6 +21,8 @@ const handler: Handler = async (event) => {
 
   // Query params
   const status = event.queryStringParameters?.status; // pending | accepted | rejected
+  const showArchived = event.queryStringParameters?.show_archived === "true";
+
   let query = supabase
     .from("applications")
     .select("*")
@@ -28,6 +30,11 @@ const handler: Handler = async (event) => {
 
   if (status) {
     query = query.eq("status", status);
+  }
+
+  // By default hide archived applications; show only when explicitly requested
+  if (!showArchived) {
+    query = query.is("archived_at", null);
   }
 
   const { data, error } = await query;

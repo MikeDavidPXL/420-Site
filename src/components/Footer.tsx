@@ -18,6 +18,9 @@ const Footer = () => (
         <p className="text-muted-foreground text-xs font-semibold">
           Pack made by <span className="text-primary">Mike</span>
         </p>
+        <p className="text-muted-foreground text-xs font-semibold">
+          Website made by <span className="text-primary">Mike</span>
+        </p>
         <p className="text-muted-foreground text-xs">
           For any questions send a DM on Discord: <span className="text-primary font-mono">m1k3_1206</span>
         </p>

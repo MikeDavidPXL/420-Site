@@ -1,9 +1,9 @@
 // Pack page — restored old look with full section layout
-// Staff sees admin panel tab in navbar; private/staff both see this page
-import { useEffect, useState, useRef, useCallback } from "react";
+// Staff sees admin panel link in navbar; private/staff both see this page
+import { useEffect, useState, useRef } from "react";
 import { motion, useInView } from "framer-motion";
 import { useAuth } from "@/context/AuthContext";
-import { Navigate } from "react-router-dom";
+import { Navigate, Link } from "react-router-dom";
 import {
   Download,
   FileArchive,
@@ -15,13 +15,9 @@ import {
   RefreshCw,
   Tag,
   Shield,
-  CheckCircle,
-  XCircle,
-  Clock,
   Loader2,
-  ChevronDown,
-  ChevronUp,
   LogOut,
+  BookOpen,
 } from "lucide-react";
 import clanLogo from "@/assets/clan-logo.png";
 import heroBanner from "@/assets/420Gif.png";
@@ -35,28 +31,6 @@ interface ChangelogEntry {
   fileSize?: string;
 }
 
-interface AdminApp {
-  id: string;
-  discord_id: string;
-  discord_name: string;
-  uid: string;
-  age: number;
-  speaks_english: boolean;
-  timezone: string;
-  activity: string;
-  level: string;
-  playstyle: string;
-  banned_koth_cheating: boolean;
-  looking_for: string;
-  has_mic: boolean;
-  clan_history: string;
-  status: string;
-  reviewer_note: string | null;
-  created_at: string;
-}
-
-type Filter = "all" | "pending" | "accepted" | "rejected";
-
 const DOWNLOAD_URL =
   "https://drive.google.com/drive/u/0/folders/1-rMFHAWvzPGLfbwvgcGsbM5_fB0cdHwa";
 
@@ -67,7 +41,7 @@ const features = [
   { icon: RefreshCw, title: "Regular Updates", description: "New content and improvements when i got time... This is all still a test." },
 ];
 
-// ── Nav items (staff gets Admin Panel) ────────────────────
+// ── Nav items (staff gets Admin Panel link, private/staff get Installation) ──
 const getNavItems = (isStaff: boolean) => {
   const items = [
     { label: "Home", href: "#hero" },
@@ -76,8 +50,9 @@ const getNavItems = (isStaff: boolean) => {
     { label: "Showcase", href: "#video" },
     { label: "Changelog", href: "#changelog" },
     { label: "Download", href: "#download" },
+    { label: "Installation", href: "/installation", route: true },
   ];
-  if (isStaff) items.push({ label: "Admin Panel", href: "#admin" });
+  if (isStaff) items.push({ label: "Admin Panel", href: "/admin", route: true });
   return items;
 };
 
@@ -387,9 +362,6 @@ const TexturePackPage = () => {
         )}
       </AnimatedSection>
 
-      {/* ── Admin Panel (staff only) ─────────────────────── */}
-      {user!.is_staff && <AdminSection />}
-
       {/* ── Footer ───────────────────────────────────────── */}
       <footer className="border-t border-border py-8">
         <div className="container mx-auto px-4">
@@ -425,7 +397,7 @@ function PackNavbar({
   navItems,
   user,
 }: {
-  navItems: { label: string; href: string }[];
+  navItems: { label: string; href: string; route?: boolean }[];
   user: { avatar: string | null; username: string; is_staff: boolean };
 }) {
   const [scrolled, setScrolled] = useState(false);
@@ -455,18 +427,30 @@ function PackNavbar({
           </span>
         </a>
         <div className="hidden md:flex items-center gap-6">
-          {navItems.map((item) => (
-            <a
-              key={item.href}
-              href={item.href}
-              className={`font-body text-sm font-medium hover:text-primary transition-colors duration-200 uppercase tracking-wider ${
-                item.label === "Admin Panel" ? "text-secondary hover:text-secondary/80" : ""
-              }`}
-            >
-              {item.label === "Admin Panel" && <Shield className="w-3.5 h-3.5 inline mr-1" />}
-              {item.label}
-            </a>
-          ))}
+          {navItems.map((item) => {
+            const isAdmin = item.label === "Admin Panel";
+            const isInstall = item.label === "Installation";
+            const cls = `font-body text-sm font-medium hover:text-primary transition-colors duration-200 uppercase tracking-wider ${
+              isAdmin ? "text-secondary hover:text-secondary/80" : ""
+            }`;
+
+            // Route links use React Router <Link>
+            if (item.route) {
+              return (
+                <Link key={item.href} to={item.href} className={cls}>
+                  {isAdmin && <Shield className="w-3.5 h-3.5 inline mr-1" />}
+                  {isInstall && <BookOpen className="w-3.5 h-3.5 inline mr-1" />}
+                  {item.label}
+                </Link>
+              );
+            }
+
+            return (
+              <a key={item.href} href={item.href} className={cls}>
+                {item.label}
+              </a>
+            );
+          })}
         </div>
         <div className="flex items-center gap-3">
           <div className="flex items-center gap-2">
@@ -507,201 +491,6 @@ function AnimatedSection({
       {children(isInView)}
     </section>
   );
-}
-
-// ══════════════════════════════════════════════════════════
-//  ADMIN SECTION (embedded, staff only)
-// ══════════════════════════════════════════════════════════
-function AdminSection() {
-  const [apps, setApps] = useState<AdminApp[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [filter, setFilter] = useState<Filter>("pending");
-  const [expanded, setExpanded] = useState<string | null>(null);
-  const [actionLoading, setActionLoading] = useState<string | null>(null);
-  const [note, setNote] = useState("");
-
-  const fetchApps = useCallback(async () => {
-    setLoading(true);
-    try {
-      const qs = filter === "all" ? "" : `?status=${filter}`;
-      const res = await fetch(`/.netlify/functions/admin-list${qs}`);
-      const data = await res.json();
-      setApps(data.applications ?? []);
-    } catch {
-      setApps([]);
-    } finally {
-      setLoading(false);
-    }
-  }, [filter]);
-
-  useEffect(() => {
-    fetchApps();
-  }, [fetchApps]);
-
-  const review = async (appId: string, action: "accept" | "reject") => {
-    setActionLoading(appId);
-    try {
-      const res = await fetch("/.netlify/functions/admin-review", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ application_id: appId, action, note }),
-      });
-      if (res.ok) {
-        setNote("");
-        setExpanded(null);
-        await fetchApps();
-      }
-    } finally {
-      setActionLoading(null);
-    }
-  };
-
-  const statusIcon = (s: string) => {
-    if (s === "pending") return <Clock className="w-4 h-4 text-yellow-400" />;
-    if (s === "accepted") return <CheckCircle className="w-4 h-4 text-green-400" />;
-    return <XCircle className="w-4 h-4 text-red-400" />;
-  };
-
-  return (
-    <section id="admin" className="py-24 relative">
-      <div className="container mx-auto px-4 max-w-4xl">
-        <div className="flex items-center justify-center gap-3 mb-8">
-          <Shield className="w-7 h-7 text-secondary" />
-          <h2 className="font-display text-3xl sm:text-4xl font-bold uppercase neon-text-purple text-secondary">
-            Admin Panel
-          </h2>
-        </div>
-
-        {/* Filters */}
-        <div className="flex gap-2 mb-6 flex-wrap justify-center">
-          {(["pending", "accepted", "rejected", "all"] as Filter[]).map((f) => (
-            <button
-              key={f}
-              onClick={() => setFilter(f)}
-              className={`font-display text-sm px-4 py-1.5 rounded-lg border transition ${
-                filter === f
-                  ? "bg-primary text-primary-foreground border-primary"
-                  : "bg-card text-muted-foreground border-border hover:border-primary/50"
-              }`}
-            >
-              {f.charAt(0).toUpperCase() + f.slice(1)}
-            </button>
-          ))}
-          <span className="ml-auto text-sm text-muted-foreground self-center">
-            {apps.length} result{apps.length !== 1 ? "s" : ""}
-          </span>
-        </div>
-
-        {loading && (
-          <div className="text-center py-12">
-            <Loader2 className="w-6 h-6 text-primary animate-spin mx-auto" />
-          </div>
-        )}
-
-        {!loading && apps.length === 0 && (
-          <p className="text-center text-muted-foreground py-12">No applications found.</p>
-        )}
-
-        <div className="space-y-3">
-          {apps.map((app) => (
-            <div
-              key={app.id}
-              className="bg-card border border-border rounded-lg overflow-hidden hover:neon-border-blue transition-all duration-300"
-            >
-              <button
-                onClick={() => setExpanded(expanded === app.id ? null : app.id)}
-                className="w-full flex items-center gap-4 px-5 py-4 text-left"
-              >
-                {statusIcon(app.status)}
-                <span className="font-display text-sm font-bold text-foreground flex-1">
-                  {app.discord_name}{" "}
-                  <span className="text-muted-foreground font-normal">(UID: {app.uid})</span>
-                </span>
-                <span className="text-xs text-muted-foreground">
-                  {new Date(app.created_at).toLocaleDateString()}
-                </span>
-                {expanded === app.id ? (
-                  <ChevronUp className="w-4 h-4 text-muted-foreground" />
-                ) : (
-                  <ChevronDown className="w-4 h-4 text-muted-foreground" />
-                )}
-              </button>
-
-              {expanded === app.id && (
-                <div className="border-t border-border px-5 py-5 space-y-3">
-                  <Detail label="Discord ID" value={app.discord_id} />
-                  <Detail label="UID" value={app.uid} />
-                  <Detail label="Age" value={String(app.age)} />
-                  <Detail label="Speaks English" value={yesNo(app.speaks_english)} />
-                  <Detail label="Timezone" value={app.timezone} />
-                  <Detail label="Activity" value={app.activity} />
-                  <Detail label="Level" value={app.level} />
-                  <Detail label="Preferred playstyle" value={app.playstyle} />
-                  <Detail label="Banned from KOTH (cheating)" value={yesNo(app.banned_koth_cheating)} />
-                  <Detail label="Looking for in a clan" value={app.looking_for} />
-                  <Detail label="Has mic" value={yesNo(app.has_mic)} />
-                  <Detail label="Current/previous clan membership" value={app.clan_history} />
-                  {app.reviewer_note && <Detail label="Reviewer note" value={app.reviewer_note} />}
-
-                  {app.status === "pending" && (
-                    <div className="pt-3 border-t border-border space-y-3">
-                      <textarea
-                        value={note}
-                        onChange={(e) => setNote(e.target.value)}
-                        placeholder="Optional note (shown to user if rejected)..."
-                        rows={2}
-                        className="w-full bg-muted border border-border rounded-lg px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground/50 focus:outline-none focus:ring-2 focus:ring-primary/50 resize-none"
-                      />
-                      <div className="flex gap-3">
-                        <button
-                          onClick={() => review(app.id, "accept")}
-                          disabled={actionLoading === app.id}
-                          className="flex-1 flex items-center justify-center gap-2 bg-green-600 hover:bg-green-700 text-white font-display font-bold py-2.5 rounded-lg transition disabled:opacity-50"
-                        >
-                          {actionLoading === app.id ? (
-                            <Loader2 className="w-4 h-4 animate-spin" />
-                          ) : (
-                            <CheckCircle className="w-4 h-4" />
-                          )}
-                          Accept
-                        </button>
-                        <button
-                          onClick={() => review(app.id, "reject")}
-                          disabled={actionLoading === app.id}
-                          className="flex-1 flex items-center justify-center gap-2 bg-red-600 hover:bg-red-700 text-white font-display font-bold py-2.5 rounded-lg transition disabled:opacity-50"
-                        >
-                          {actionLoading === app.id ? (
-                            <Loader2 className="w-4 h-4 animate-spin" />
-                          ) : (
-                            <XCircle className="w-4 h-4" />
-                          )}
-                          Reject
-                        </button>
-                      </div>
-                    </div>
-                  )}
-                </div>
-              )}
-            </div>
-          ))}
-        </div>
-      </div>
-    </section>
-  );
-}
-
-// ── Helpers ──────────────────────────────────────────────
-function Detail({ label, value }: { label: string; value: string }) {
-  return (
-    <div>
-      <span className="text-xs font-display text-muted-foreground uppercase tracking-wider">{label}</span>
-      <p className="text-sm text-foreground mt-0.5">{value}</p>
-    </div>
-  );
-}
-
-function yesNo(value: boolean) {
-  return value ? "Yes" : "No";
 }
 
 export default TexturePackPage;

@@ -1,3 +1,5 @@
+// Admin Panel — standalone page for staff only
+// Archive / restore support, expandable application cards
 import { useEffect, useState, useCallback } from "react";
 import { motion } from "framer-motion";
 import { useAuth } from "@/context/AuthContext";
@@ -11,9 +13,14 @@ import {
   Loader2,
   ChevronDown,
   ChevronUp,
+  LogOut,
+  Archive,
+  ArchiveRestore,
 } from "lucide-react";
+import clanLogo from "@/assets/clan-logo.png";
 
-interface Application {
+// ── Types ─────────────────────────────────────────────────
+interface AdminApp {
   id: string;
   discord_id: string;
   discord_name: string;
@@ -31,15 +38,22 @@ interface Application {
   status: string;
   reviewer_note: string | null;
   created_at: string;
+  archived_at: string | null;
+  archived_by: string | null;
+  archive_reason: string | null;
 }
 
 type Filter = "all" | "pending" | "accepted" | "rejected";
 
+// ══════════════════════════════════════════════════════════
+//  ADMIN PANEL PAGE
+// ══════════════════════════════════════════════════════════
 const AdminPanel = () => {
   const { user, loading: authLoading } = useAuth();
-  const [apps, setApps] = useState<Application[]>([]);
+  const [apps, setApps] = useState<AdminApp[]>([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<Filter>("pending");
+  const [showArchived, setShowArchived] = useState(false);
   const [expanded, setExpanded] = useState<string | null>(null);
   const [actionLoading, setActionLoading] = useState<string | null>(null);
   const [note, setNote] = useState("");
@@ -47,7 +61,10 @@ const AdminPanel = () => {
   const fetchApps = useCallback(async () => {
     setLoading(true);
     try {
-      const qs = filter === "all" ? "" : `?status=${filter}`;
+      const params = new URLSearchParams();
+      if (filter !== "all") params.set("status", filter);
+      if (showArchived) params.set("show_archived", "true");
+      const qs = params.toString() ? `?${params}` : "";
       const res = await fetch(`/.netlify/functions/admin-list${qs}`);
       const data = await res.json();
       setApps(data.applications ?? []);
@@ -56,7 +73,7 @@ const AdminPanel = () => {
     } finally {
       setLoading(false);
     }
-  }, [filter]);
+  }, [filter, showArchived]);
 
   useEffect(() => {
     if (user?.is_staff) fetchApps();
@@ -80,85 +97,156 @@ const AdminPanel = () => {
     }
   };
 
-  // Guard
+  const archiveAction = async (
+    appId: string,
+    action: "archive" | "restore",
+    reason?: string
+  ) => {
+    setActionLoading(appId);
+    try {
+      const res = await fetch("/.netlify/functions/admin-archive", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ application_id: appId, action, reason }),
+      });
+      if (res.ok) {
+        await fetchApps();
+      }
+    } finally {
+      setActionLoading(null);
+    }
+  };
+
+  // Guard: staff only
   if (!authLoading && (!user || !user.is_staff)) {
-    return <Navigate to="/dashboard" replace />;
+    return <Navigate to="/pack" replace />;
+  }
+
+  if (authLoading) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <Loader2 className="w-8 h-8 text-primary animate-spin" />
+      </div>
+    );
   }
 
   const statusIcon = (s: string) => {
-    if (s === "pending")
-      return <Clock className="w-4 h-4 text-yellow-400" />;
-    if (s === "accepted")
-      return <CheckCircle className="w-4 h-4 text-green-400" />;
+    if (s === "pending") return <Clock className="w-4 h-4 text-yellow-400" />;
+    if (s === "accepted") return <CheckCircle className="w-4 h-4 text-green-400" />;
     return <XCircle className="w-4 h-4 text-red-400" />;
   };
 
   return (
-    <div className="min-h-screen bg-background relative overflow-hidden">
-      <div className="absolute inset-0 smoke-overlay pointer-events-none" />
-
-      <div className="relative z-10 container mx-auto px-4 py-12 max-w-4xl">
-        <Link
-          to="/dashboard"
-          className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground mb-6"
-        >
-          <ArrowLeft className="w-4 h-4" /> Back to Dashboard
-        </Link>
-
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-        >
-          <div className="flex items-center gap-3 mb-8">
-            <Shield className="w-7 h-7 text-secondary" />
-            <h1 className="font-display text-3xl font-bold neon-text-purple text-secondary">
+    <div className="min-h-screen bg-background">
+      {/* ── Top bar ─────────────────────────────────────── */}
+      <motion.nav
+        initial={{ y: -100 }}
+        animate={{ y: 0 }}
+        transition={{ duration: 0.5 }}
+        className="sticky top-0 z-50 bg-background/90 backdrop-blur-md border-b border-border shadow-lg"
+      >
+        <div className="container mx-auto px-4 flex items-center justify-between h-16">
+          <Link
+            to="/pack"
+            className="flex items-center gap-2 text-muted-foreground hover:text-foreground transition"
+          >
+            <ArrowLeft className="w-4 h-4" />
+            <img src={clanLogo} alt="420 Clan Logo" className="w-8 h-8 rounded-full" />
+            <span className="font-display text-sm font-bold hidden sm:block">
+              Back to Pack
+            </span>
+          </Link>
+          <div className="flex items-center gap-2">
+            <Shield className="w-5 h-5 text-secondary" />
+            <span className="font-display text-lg font-bold text-secondary hidden sm:block">
               Admin Panel
-            </h1>
-          </div>
-
-          {/* Filters */}
-          <div className="flex gap-2 mb-6 flex-wrap">
-            {(["pending", "accepted", "rejected", "all"] as Filter[]).map(
-              (f) => (
-                <button
-                  key={f}
-                  onClick={() => setFilter(f)}
-                  className={`font-display text-sm px-4 py-1.5 rounded-lg border transition ${
-                    filter === f
-                      ? "bg-primary text-primary-foreground border-primary"
-                      : "bg-card text-muted-foreground border-border hover:border-primary/50"
-                  }`}
-                >
-                  {f.charAt(0).toUpperCase() + f.slice(1)}
-                </button>
-              )
-            )}
-            <span className="ml-auto text-sm text-muted-foreground self-center">
-              {apps.length} result{apps.length !== 1 ? "s" : ""}
             </span>
           </div>
-
-          {/* Loading */}
-          {loading && (
-            <div className="text-center py-12">
-              <Loader2 className="w-6 h-6 text-primary animate-spin mx-auto" />
+          <div className="flex items-center gap-3">
+            <div className="flex items-center gap-2">
+              {user!.avatar && (
+                <img
+                  src={user!.avatar}
+                  alt=""
+                  className="w-8 h-8 rounded-full border border-border"
+                />
+              )}
+              <span className="text-sm text-foreground hidden sm:block">
+                {user!.username}
+              </span>
             </div>
-          )}
+            <a
+              href="/.netlify/functions/logout"
+              className="text-muted-foreground hover:text-destructive transition"
+              title="Logout"
+            >
+              <LogOut className="w-4 h-4" />
+            </a>
+          </div>
+        </div>
+      </motion.nav>
 
-          {/* List */}
-          {!loading && apps.length === 0 && (
-            <p className="text-center text-muted-foreground py-12">
-              No applications found.
-            </p>
-          )}
+      {/* ── Content ─────────────────────────────────────── */}
+      <div className="container mx-auto px-4 max-w-4xl py-12">
+        {/* Filters */}
+        <div className="flex gap-2 mb-4 flex-wrap justify-center">
+          {(["pending", "accepted", "rejected", "all"] as Filter[]).map((f) => (
+            <button
+              key={f}
+              onClick={() => setFilter(f)}
+              className={`font-display text-sm px-4 py-1.5 rounded-lg border transition ${
+                filter === f
+                  ? "bg-primary text-primary-foreground border-primary"
+                  : "bg-card text-muted-foreground border-border hover:border-primary/50"
+              }`}
+            >
+              {f.charAt(0).toUpperCase() + f.slice(1)}
+            </button>
+          ))}
+        </div>
 
-          <div className="space-y-3">
-            {apps.map((app) => (
+        {/* Show archived toggle + result count */}
+        <div className="flex items-center justify-between mb-6">
+          <label className="flex items-center gap-2 text-sm text-muted-foreground cursor-pointer select-none">
+            <input
+              type="checkbox"
+              checked={showArchived}
+              onChange={(e) => setShowArchived(e.target.checked)}
+              className="accent-primary w-4 h-4 rounded"
+            />
+            <Archive className="w-4 h-4" />
+            Show archived
+          </label>
+          <span className="text-sm text-muted-foreground">
+            {apps.length} result{apps.length !== 1 ? "s" : ""}
+          </span>
+        </div>
+
+        {loading && (
+          <div className="text-center py-12">
+            <Loader2 className="w-6 h-6 text-primary animate-spin mx-auto" />
+          </div>
+        )}
+
+        {!loading && apps.length === 0 && (
+          <p className="text-center text-muted-foreground py-12">
+            No applications found.
+          </p>
+        )}
+
+        <div className="space-y-3">
+          {apps.map((app) => {
+            const isArchived = !!app.archived_at;
+
+            return (
               <div
                 key={app.id}
-                className="bg-card border border-border rounded-lg overflow-hidden hover:neon-border-blue transition-all duration-300"
+                className={`bg-card border rounded-lg overflow-hidden transition-all duration-300 ${
+                  isArchived
+                    ? "border-muted opacity-60 hover:opacity-80"
+                    : "border-border hover:neon-border-blue"
+                }`}
               >
-                {/* Summary row */}
                 <button
                   onClick={() =>
                     setExpanded(expanded === app.id ? null : app.id)
@@ -171,6 +259,11 @@ const AdminPanel = () => {
                     <span className="text-muted-foreground font-normal">
                       (UID: {app.uid})
                     </span>
+                    {isArchived && (
+                      <span className="ml-2 text-xs text-muted-foreground bg-muted px-2 py-0.5 rounded">
+                        archived
+                      </span>
+                    )}
                   </span>
                   <span className="text-xs text-muted-foreground">
                     {new Date(app.created_at).toLocaleDateString()}
@@ -182,32 +275,55 @@ const AdminPanel = () => {
                   )}
                 </button>
 
-                {/* Expanded detail */}
                 {expanded === app.id && (
                   <div className="border-t border-border px-5 py-5 space-y-3">
                     <Detail label="Discord ID" value={app.discord_id} />
                     <Detail label="UID" value={app.uid} />
                     <Detail label="Age" value={String(app.age)} />
-                    <Detail label="Speaks English" value={yesNo(app.speaks_english)} />
+                    <Detail
+                      label="Speaks English"
+                      value={yesNo(app.speaks_english)}
+                    />
                     <Detail label="Timezone" value={app.timezone} />
                     <Detail label="Activity" value={app.activity} />
                     <Detail label="Level" value={app.level} />
-                    <Detail label="Preferred playstyle" value={app.playstyle} />
-                    <Detail label="Banned from KOTH (cheating)" value={yesNo(app.banned_koth_cheating)} />
-                    <Detail label="Looking for in a clan" value={app.looking_for} />
+                    <Detail
+                      label="Preferred playstyle"
+                      value={app.playstyle}
+                    />
+                    <Detail
+                      label="Banned from KOTH (cheating)"
+                      value={yesNo(app.banned_koth_cheating)}
+                    />
+                    <Detail
+                      label="Looking for in a clan"
+                      value={app.looking_for}
+                    />
                     <Detail label="Has mic" value={yesNo(app.has_mic)} />
-                    <Detail label="Current/previous clan membership" value={app.clan_history} />
+                    <Detail
+                      label="Current/previous clan membership"
+                      value={app.clan_history}
+                    />
                     {app.reviewer_note && (
-                      <Detail label="Reviewer note" value={app.reviewer_note} />
+                      <Detail
+                        label="Reviewer note"
+                        value={app.reviewer_note}
+                      />
+                    )}
+                    {isArchived && app.archive_reason && (
+                      <Detail
+                        label="Archive reason"
+                        value={app.archive_reason}
+                      />
                     )}
 
-                    {/* Actions */}
-                    {app.status === "pending" && (
+                    {/* ── Accept / Reject (pending only) ─── */}
+                    {app.status === "pending" && !isArchived && (
                       <div className="pt-3 border-t border-border space-y-3">
                         <textarea
                           value={note}
                           onChange={(e) => setNote(e.target.value)}
-                          placeholder="Optional note..."
+                          placeholder="Optional note (shown to user if rejected)..."
                           rows={2}
                           className="w-full bg-muted border border-border rounded-lg px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground/50 focus:outline-none focus:ring-2 focus:ring-primary/50 resize-none"
                         />
@@ -239,17 +355,49 @@ const AdminPanel = () => {
                         </div>
                       </div>
                     )}
+
+                    {/* ── Archive / Restore ────────────── */}
+                    <div className="pt-3 border-t border-border">
+                      {isArchived ? (
+                        <button
+                          onClick={() => archiveAction(app.id, "restore")}
+                          disabled={actionLoading === app.id}
+                          className="flex items-center gap-2 text-sm text-primary hover:text-primary/80 transition disabled:opacity-50"
+                        >
+                          {actionLoading === app.id ? (
+                            <Loader2 className="w-4 h-4 animate-spin" />
+                          ) : (
+                            <ArchiveRestore className="w-4 h-4" />
+                          )}
+                          Restore from archive
+                        </button>
+                      ) : (
+                        <button
+                          onClick={() => archiveAction(app.id, "archive")}
+                          disabled={actionLoading === app.id}
+                          className="flex items-center gap-2 text-sm text-muted-foreground hover:text-destructive transition disabled:opacity-50"
+                        >
+                          {actionLoading === app.id ? (
+                            <Loader2 className="w-4 h-4 animate-spin" />
+                          ) : (
+                            <Archive className="w-4 h-4" />
+                          )}
+                          Archive
+                        </button>
+                      )}
+                    </div>
                   </div>
                 )}
               </div>
-            ))}
-          </div>
-        </motion.div>
+            );
+          })}
+        </div>
       </div>
     </div>
   );
 };
 
+// ── Helpers ──────────────────────────────────────────────
 function Detail({ label, value }: { label: string; value: string }) {
   return (
     <div>
