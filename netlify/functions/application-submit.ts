@@ -1,0 +1,102 @@
+// /.netlify/functions/application-submit
+// POST: submit a new application
+import type { Handler } from "@netlify/functions";
+import { getSessionFromCookie, supabase, json } from "./shared";
+
+const handler: Handler = async (event) => {
+  if (event.httpMethod !== "POST") {
+    return json({ error: "Method not allowed" }, 405);
+  }
+
+  const session = getSessionFromCookie(event.headers.cookie);
+  if (!session) {
+    return json({ error: "Unauthorized" }, 401);
+  }
+
+  // Check for existing pending/accepted application
+  const { data: existing } = await supabase
+    .from("applications")
+    .select("id, status")
+    .eq("discord_id", session.discord_id)
+    .in("status", ["pending", "accepted"])
+    .limit(1)
+    .maybeSingle();
+
+  if (existing) {
+    return json(
+      { error: `You already have a ${existing.status} application` },
+      409
+    );
+  }
+
+  let body: any;
+  try {
+    body = JSON.parse(event.body || "{}");
+  } catch {
+    return json({ error: "Invalid JSON" }, 400);
+  }
+
+  const {
+    uid,
+    age,
+    speaks_english,
+    timezone,
+    activity,
+    level,
+    playstyle,
+    banned_koth_cheating,
+    looking_for,
+    has_mic,
+    clan_history,
+  } = body;
+
+  if (
+    !uid ||
+    !age ||
+    !speaks_english ||
+    !timezone ||
+    !activity ||
+    !level ||
+    !playstyle ||
+    !banned_koth_cheating ||
+    !looking_for ||
+    !has_mic ||
+    !clan_history
+  ) {
+    return json({ error: "All fields are required" }, 400);
+  }
+
+  const parsedAge = Number(age);
+  if (Number.isNaN(parsedAge) || parsedAge <= 0) {
+    return json({ error: "Age must be a valid number" }, 400);
+  }
+
+  const { data, error } = await supabase
+    .from("applications")
+    .insert({
+      discord_id: session.discord_id,
+      discord_name: session.username,
+      uid,
+      age: parsedAge,
+      speaks_english: speaks_english === "yes",
+      timezone,
+      activity,
+      level,
+      playstyle,
+      banned_koth_cheating: banned_koth_cheating === "yes",
+      looking_for,
+      has_mic: has_mic === "yes",
+      clan_history,
+    })
+    .select()
+    .single();
+
+  if (error) {
+    console.error("Insert error:", error);
+    return json({ error: "Failed to submit application" }, 500);
+  }
+
+  return json({ ok: true, application: data }, 201);
+};
+
+export { handler };
