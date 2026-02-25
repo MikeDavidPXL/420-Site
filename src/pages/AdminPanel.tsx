@@ -432,7 +432,6 @@ const AdminPanel = () => {
 
                 {expanded === app.id && (
                   <div className="border-t border-border px-5 py-5 space-y-3">
-                    <Detail label="Discord ID" value={app.discord_id} />
                     <Detail label="UID" value={app.uid} />
                     <Detail label="Age" value={String(app.age)} />
                     <Detail

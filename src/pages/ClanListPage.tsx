@@ -76,10 +76,9 @@ interface PromotionPreview {
 }
 
 interface ResolveCandidate {
-  discord_id: string;
-  display_name: string;
-  username: string;
-  nick: string | null;
+  label: string;
+  sublabel: string;
+  resolve_token: string;
 }
 
 const RANKS = ["Private", "Corporal", "Sergeant", "Lieutenant", "Major"];
@@ -122,7 +121,7 @@ const ClanListPage = () => {
   const [showAddForm, setShowAddForm] = useState(false);
   const [addForm, setAddForm] = useState({
     discord_name: "",
-    discord_id: "",
+    resolve_token: "",
     ign: "",
     uid: "",
     join_date: new Date().toISOString().split("T")[0],
@@ -273,8 +272,8 @@ const ClanListPage = () => {
       if (candidates.length === 1) {
         setAddForm((f) => ({
           ...f,
-          discord_id: candidates[0].discord_id,
-          discord_name: candidates[0].display_name || f.discord_name,
+          resolve_token: candidates[0].resolve_token,
+          discord_name: candidates[0].label || f.discord_name,
         }));
       }
     } catch {
@@ -301,8 +300,15 @@ const ClanListPage = () => {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          ...addForm,
-          discord_id: addForm.discord_id || null,
+          discord_name: addForm.discord_name,
+          ign: addForm.ign,
+          uid: addForm.uid,
+          join_date: addForm.join_date,
+          status: addForm.status,
+          has_420_tag: addForm.has_420_tag,
+          rank_current: addForm.rank_current,
+          source: addForm.source,
+          resolve_token: addForm.resolve_token || null,
           allow_unresolved: allowUnresolved,
         }),
       });
@@ -326,7 +332,7 @@ const ClanListPage = () => {
       setShowAddForm(false);
       setAddForm({
         discord_name: "",
-        discord_id: "",
+        resolve_token: "",
         ign: "",
         uid: "",
         join_date: new Date().toISOString().split("T")[0],
@@ -633,7 +639,7 @@ const ClanListPage = () => {
                           setAddForm((f) => ({
                             ...f,
                             discord_name: e.target.value,
-                            discord_id: "",
+                            resolve_token: "",
                           }))
                         }
                         onBlur={findDiscordCandidates}
@@ -648,9 +654,9 @@ const ClanListPage = () => {
                         {resolving ? "..." : "Find"}
                       </button>
                     </div>
-                    {addForm.discord_id && (
+                    {addForm.resolve_token && (
                       <p className="text-xs text-green-400 mt-1">
-                        Resolved: {addForm.discord_id}
+                        Resolved
                       </p>
                     )}
                   </div>
@@ -756,23 +762,23 @@ const ClanListPage = () => {
                       Select Discord Match
                     </label>
                     <select
-                      value={addForm.discord_id}
+                      value={addForm.resolve_token}
                       onChange={(e) => {
                         const selected = resolveCandidates.find(
-                          (c) => c.discord_id === e.target.value
+                          (c) => c.resolve_token === e.target.value
                         );
                         setAddForm((f) => ({
                           ...f,
-                          discord_id: e.target.value,
-                          discord_name: selected?.display_name || f.discord_name,
+                          resolve_token: e.target.value,
+                          discord_name: selected?.label || f.discord_name,
                         }));
                       }}
                       className="w-full bg-muted border border-border rounded-lg px-3 py-2 text-sm text-foreground focus:ring-2 focus:ring-secondary/50 focus:outline-none"
                     >
                       <option value="">Choose a Discord user...</option>
-                      {resolveCandidates.map((c) => (
-                        <option key={c.discord_id} value={c.discord_id}>
-                          {c.display_name} (@{c.username}) {c.nick ? `nick: ${c.nick}` : ""}
+                      {resolveCandidates.map((c, i) => (
+                        <option key={i} value={c.resolve_token}>
+                          {c.label} {c.sublabel}
                         </option>
                       ))}
                     </select>

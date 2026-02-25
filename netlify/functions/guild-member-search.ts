@@ -1,5 +1,6 @@
 // /.netlify/functions/guild-member-search
 // GET: search Discord guild members by nickname/global display name/username (staff only)
+// Returns opaque resolve_tokens instead of raw discord_ids
 import type { Handler } from "@netlify/functions";
 import {
   getSessionFromCookie,
@@ -8,6 +9,7 @@ import {
   json,
   fetchAllGuildMembers,
   searchGuildMemberCandidates,
+  signResolveToken,
 } from "./shared";
 
 const handler: Handler = async (event) => {
@@ -32,7 +34,14 @@ const handler: Handler = async (event) => {
   if (!query) return json({ candidates: [] });
 
   const guildMembers = await fetchAllGuildMembers();
-  const candidates = searchGuildMemberCandidates(guildMembers, query, 20);
+  const rawCandidates = searchGuildMemberCandidates(guildMembers, query, 20);
+
+  // Map to opaque format: no discord_id exposed, only resolve_token
+  const candidates = rawCandidates.map((c) => ({
+    label: c.display_name,
+    sublabel: `@${c.username}${c.nick ? ` (nick: ${c.nick})` : ""}`,
+    resolve_token: signResolveToken(c.discord_id),
+  }));
 
   await supabase.from("audit_log").insert({
     action: "guild_member_search",

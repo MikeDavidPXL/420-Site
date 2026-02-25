@@ -284,6 +284,28 @@ export async function postChannelMessage(
   return res.ok;
 }
 
+// ── Resolve tokens (opaque, hide discord_id from UI) ────────
+const RESOLVE_TOKEN_SECRET = SECRET; // reuse session secret
+
+export function signResolveToken(discordId: string): string {
+  return jwt.sign({ did: discordId, purpose: "resolve" }, RESOLVE_TOKEN_SECRET, {
+    expiresIn: "15m",
+  });
+}
+
+export function verifyResolveToken(token: string): string | null {
+  try {
+    const payload = jwt.verify(token, RESOLVE_TOKEN_SECRET) as {
+      did?: string;
+      purpose?: string;
+    };
+    if (payload.purpose !== "resolve" || !payload.did) return null;
+    return payload.did;
+  } catch {
+    return null;
+  }
+}
+
 // ── Response helpers ────────────────────────────────────────
 export function json(body: unknown, status = 200, extraHeaders: Record<string, string> = {}) {
   return {

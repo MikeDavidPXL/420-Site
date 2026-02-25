@@ -15,12 +15,14 @@ import {
   fetchAllGuildMembers,
   searchGuildMemberCandidates,
   normalizeLookup,
+  signResolveToken,
+  verifyResolveToken,
 } from "./shared";
 
 interface MemberBody {
   id?: string;
   discord_name?: string;
-  discord_id?: string | null;
+  resolve_token?: string | null;
   ign?: string;
   uid?: string;
   join_date?: string;
@@ -87,16 +89,20 @@ const handler: Handler = async (event) => {
     // Merge fields
     const upd: Record<string, unknown> = { updated_at: nowIso };
     if (body.discord_name !== undefined) upd.discord_name = body.discord_name;
-    if (body.discord_id !== undefined) {
-      if (body.discord_id) {
-        const valid = await validateDiscordIdInGuild(body.discord_id);
+    if (body.resolve_token !== undefined) {
+      if (body.resolve_token) {
+        const resolvedId = verifyResolveToken(body.resolve_token);
+        if (!resolvedId) {
+          return json({ error: "Invalid or expired resolve token" }, 400);
+        }
+        const valid = await validateDiscordIdInGuild(resolvedId);
         if (!valid) {
           return json(
-            { error: "Selected discord_id is not in guild", code: "DISCORD_NOT_IN_GUILD" },
+            { error: "Resolved user is not in guild", code: "DISCORD_NOT_IN_GUILD" },
             400
           );
         }
-        upd.discord_id = body.discord_id;
+        upd.discord_id = resolvedId;
         upd.needs_resolution = false;
         upd.resolution_status = "resolved_manual";
         upd.resolved_at = nowIso;
@@ -210,20 +216,25 @@ const handler: Handler = async (event) => {
   const rankCurrent = body.rank_current ?? "Private";
   const isActive = status === "active" && hasTag;
 
-  let resolvedDiscordId: string | null = body.discord_id ?? null;
-  let resolutionStatus: "unresolved" | "resolved_auto" | "resolved_manual" =
-    body.discord_id ? "resolved_manual" : "unresolved";
+  let resolvedDiscordId: string | null = null;
+  let resolutionStatus: "unresolved" | "resolved_auto" | "resolved_manual" = "unresolved";
   let resolvedAt: string | null = null;
   let resolvedBy: string | null = null;
 
-  if (resolvedDiscordId) {
-    const valid = await validateDiscordIdInGuild(resolvedDiscordId);
+  // If a resolve_token was provided, extract the discord_id from it
+  if (body.resolve_token) {
+    const tokenId = verifyResolveToken(body.resolve_token);
+    if (!tokenId) {
+      return json({ error: "Invalid or expired resolve token" }, 400);
+    }
+    const valid = await validateDiscordIdInGuild(tokenId);
     if (!valid) {
       return json(
-        { error: "Selected discord_id is not in guild", code: "DISCORD_NOT_IN_GUILD" },
+        { error: "Resolved user is not in guild", code: "DISCORD_NOT_IN_GUILD" },
         400
       );
     }
+    resolvedDiscordId = tokenId;
     resolutionStatus = "resolved_manual";
     resolvedAt = nowIso;
     resolvedBy = session.discord_id;
@@ -250,7 +261,11 @@ const handler: Handler = async (event) => {
         {
           error: "Multiple Discord users match this name. Please choose one.",
           code: "DISCORD_AMBIGUOUS",
-          candidates: exact.slice(0, 20),
+          candidates: exact.slice(0, 20).map((c) => ({
+            label: c.display_name,
+            sublabel: `@${c.username}${c.nick ? ` (nick: ${c.nick})` : ""}`,
+            resolve_token: signResolveToken(c.discord_id),
+          })),
         },
         409
       );
@@ -264,7 +279,11 @@ const handler: Handler = async (event) => {
         {
           error: "Multiple Discord users match this name. Please choose one.",
           code: "DISCORD_AMBIGUOUS",
-          candidates: candidates.slice(0, 20),
+          candidates: candidates.slice(0, 20).map((c) => ({
+            label: c.display_name,
+            sublabel: `@${c.username}${c.nick ? ` (nick: ${c.nick})` : ""}`,
+            resolve_token: signResolveToken(c.discord_id),
+          })),
         },
         409
       );
