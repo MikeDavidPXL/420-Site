@@ -44,6 +44,36 @@ const features = [
   { icon: RefreshCw, title: "Regular Updates", description: "New content and improvements when i got time... This is all still a test." },
 ];
 
+// ── Staff members configuration ─────────────────────────────
+const staffMembers = [
+  {
+    name: "M1K3",
+    role: "Owner",
+    avatar_url: "/images/staff/mike.png",
+  },
+  {
+    name: "WebDev",
+    role: "Web Developer",
+    avatar_url: "/images/staff/webdev.png",
+  },
+  {
+    name: "Admin1",
+    role: "Clan Admin",
+    avatar_url: "/images/staff/admin1.png",
+  },
+  {
+    name: "Admin2",
+    role: "Clan Admin",
+    avatar_url: "/images/staff/admin2.png",
+  },
+];
+
+const roleOrder = ["Owner", "Web Developer", "Clan Admin"];
+const staffByRole = roleOrder.map((role) => ({
+  role,
+  members: staffMembers.filter((m) => m.role === role),
+}));
+
 // ── Nav items (staff gets Admin Panel link, private/staff get Installation) ──
 const getNavItems = (isStaff: boolean) => {
   const items = [
@@ -156,7 +186,7 @@ const TexturePackPage = () => {
           >
             Come and hangout in the VC or on Cosmic.
             Upgrade your FiveM experience with our exclusive custom textures.
-            Clothing, weapons, vehicles, and more — all in one pack.
+            Weapons, vehicles, and more - all in one pack.
           </motion.p>
           <motion.a
             href="#download"
@@ -175,8 +205,9 @@ const TexturePackPage = () => {
       <AnimatedSection id="about" className="py-24 relative smoke-overlay">
         {(isInView) => (
           <div className="container mx-auto px-4">
+            {/* About Us Text */}
             <motion.div
-              className="max-w-3xl mx-auto text-center"
+              className="max-w-3xl mx-auto text-center mb-16"
               initial={{ opacity: 0, y: 40 }}
               animate={isInView ? { opacity: 1, y: 0 } : {}}
               transition={{ duration: 0.6 }}
@@ -185,10 +216,13 @@ const TexturePackPage = () => {
                 About 420 Clan
               </h2>
               <p className="text-lg text-muted-foreground mb-8 leading-relaxed">
-                We are <span className="text-primary font-semibold">420 Clan</span> — a
-                community of dedicated FiveM players who take CosmicV to the next level.
-                Our texture pack made by <span className="text-primary font-semibold">M1K3</span> is designed to fully transform your server experience
-                with high-quality custom content.
+                We are <span className="text-primary font-semibold">420 Clan</span>, a
+                community built for lovers of the CosmicV KOTH FiveM server who want to
+                take their experience to the next level. Our texture pack made by{" "}
+                <span className="text-primary font-semibold neon-text-blue">M1K3</span>{" "}
+                is designed to fully transform your server experience with high-quality
+                custom content, clean weapon skins, and effects that pop to make your
+                gameplay look and feel unique.
               </p>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 {[
@@ -209,6 +243,71 @@ const TexturePackPage = () => {
                       {stat.label}
                     </div>
                   </motion.div>
+                ))}
+              </div>
+            </motion.div>
+
+            {/* Staff Team Section */}
+            <motion.div
+              className="max-w-6xl mx-auto"
+              initial={{ opacity: 0, y: 40 }}
+              animate={isInView ? { opacity: 1, y: 0 } : {}}
+              transition={{ delay: 0.4, duration: 0.6 }}
+            >
+              <h3 className="font-display text-2xl sm:text-3xl font-bold uppercase mb-12 text-center neon-text-blue text-primary">
+                Staff Team
+              </h3>
+
+              <div className="space-y-12">
+                {staffByRole.map((group, groupIndex) => (
+                  <div key={group.role}>
+                    <h4 className="font-display text-xl font-bold uppercase mb-6 text-center text-secondary">
+                      {group.role}
+                    </h4>
+                    <div className={`grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 ${
+                      group.members.length === 1 ? "max-w-sm mx-auto" :
+                      group.members.length === 2 ? "max-w-2xl mx-auto" : ""
+                    }`}>
+                      {group.members.map((member, memberIndex) => (
+                        <motion.div
+                          key={member.name}
+                          className="bg-card border border-border rounded-lg p-6 text-center hover:border-primary/50 transition-all duration-300"
+                          initial={{ opacity: 0, y: 20 }}
+                          animate={isInView ? { opacity: 1, y: 0 } : {}}
+                          transition={{
+                            delay: 0.5 + groupIndex * 0.1 + memberIndex * 0.05,
+                            duration: 0.5,
+                          }}
+                        >
+                          <div className="w-20 h-20 mx-auto mb-4 rounded-full bg-muted border-2 border-primary/30 flex items-center justify-center overflow-hidden">
+                            <img
+                              src={member.avatar_url}
+                              alt={member.name}
+                              className="w-full h-full object-cover"
+                              onError={(e) => {
+                                e.currentTarget.style.display = "none";
+                                const parent = e.currentTarget.parentElement;
+                                if (parent && !parent.querySelector(".fallback-icon")) {
+                                  const icon = document.createElement("div");
+                                  icon.className = "fallback-icon flex items-center justify-center";
+                                  icon.innerHTML = '<svg class="w-10 h-10 text-muted-foreground" stroke="currentColor" fill="none" stroke-width="2" viewBox="0 0 24 24" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>';
+                                  parent.appendChild(icon);
+                                }
+                              }}
+                            />
+                          </div>
+                          <h5 className={`font-display text-lg font-bold mb-2 ${
+                            member.name === "M1K3" ? "neon-text-blue" : "text-foreground"
+                          }`}>
+                            {member.name}
+                          </h5>
+                          <div className="inline-block px-3 py-1 rounded-full bg-primary/10 border border-primary/30 text-xs font-semibold text-primary uppercase tracking-wide">
+                            {member.role}
+                          </div>
+                        </motion.div>
+                      ))}
+                    </div>
+                  </div>
                 ))}
               </div>
             </motion.div>
@@ -259,7 +358,7 @@ const TexturePackPage = () => {
               animate={isInView ? { opacity: 1, y: 0 } : {}}
               transition={{ duration: 0.5 }}
             >
-              Update & Showcase
+              Showcase
             </motion.h2>
             <motion.p
               className="text-muted-foreground text-center mb-10 max-w-lg mx-auto"
@@ -267,7 +366,7 @@ const TexturePackPage = () => {
               animate={isInView ? { opacity: 1 } : {}}
               transition={{ delay: 0.2, duration: 0.5 }}
             >
-              Check out the latest updates and a preview of our textures in action.
+              Check out a preview of our textures in action.
             </motion.p>
             <motion.div
               className="max-w-4xl mx-auto rounded-xl overflow-hidden border border-border neon-border-blue"
