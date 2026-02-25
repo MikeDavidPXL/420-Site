@@ -29,7 +29,7 @@ const LandingPage = () => {
           420 Clan
         </h1>
         <p className="text-muted-foreground text-lg sm:text-xl mb-3 max-w-md">
-          FiveM Texture Pack &amp; Community
+          CosmicV KOTH Clan
         </p>
         <p className="text-muted-foreground/70 text-sm mb-10 max-w-sm">
           Log in with Discord to apply for the clan and access our exclusive texture pack.

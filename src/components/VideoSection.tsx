@@ -14,7 +14,7 @@ const VideoSection = () => {
           animate={isInView ? { opacity: 1, y: 0 } : {}}
           transition={{ duration: 0.5 }}
         >
-          Update & Showcase
+          Showcase
         </motion.h2>
         <motion.p
           className="text-muted-foreground text-center mb-10 max-w-lg mx-auto"
@@ -22,7 +22,7 @@ const VideoSection = () => {
           animate={isInView ? { opacity: 1 } : {}}
           transition={{ delay: 0.2, duration: 0.5 }}
         >
-          Check out the latest updates and a preview of our textures in action.
+          Check out a preview of our textures in action.
         </motion.p>
         <motion.div
           className="max-w-4xl mx-auto rounded-xl overflow-hidden border border-border neon-border-blue"
