@@ -66,10 +66,14 @@ const Dashboard = () => {
   }
 
   // Has KOTH role → show application flow
+  // effective_status is "koth" here — Discord roles are the truth.
+  // application may be null (revoked ones are hidden by backend).
+  const app = user.application;
+
   return (
     <GatePage>
-      {/* No application yet */}
-      {!user.application && (
+      {/* No application or previous was revoked → fresh apply */}
+      {!app && (
         <GateCard
           icon={<FileText className="w-8 h-8 text-primary" />}
           title="Apply for the 420 Clan"
@@ -85,7 +89,7 @@ const Dashboard = () => {
       )}
 
       {/* Application pending */}
-      {user.application?.status === "pending" && (
+      {app?.status === "pending" && (
         <GateCard
           icon={<Loader2 className="w-8 h-8 text-yellow-400 animate-spin" />}
           title="Application Pending"
@@ -93,13 +97,13 @@ const Dashboard = () => {
         >
           <span className="text-yellow-400 font-display text-sm">
             Submitted{" "}
-            {new Date(user.application.created_at).toLocaleDateString()}
+            {new Date(app.created_at).toLocaleDateString()}
           </span>
         </GateCard>
       )}
 
-      {/* Application accepted (but no private role yet — edge case) */}
-      {user.application?.status === "accepted" && (
+      {/* Application accepted but no Private role yet — brief sync window */}
+      {app?.status === "accepted" && (
         <GateCard
           icon={<Loader2 className="w-8 h-8 text-green-400 animate-spin" />}
           title="Application Accepted!"
@@ -112,19 +116,19 @@ const Dashboard = () => {
       )}
 
       {/* Application rejected */}
-      {user.application?.status === "rejected" && (
+      {app?.status === "rejected" && (
         <GateCard
           icon={<FileText className="w-8 h-8 text-destructive" />}
           title="Application Rejected"
           description="Unfortunately your application was not accepted. You may re-apply."
         >
-          {user.application.reviewer_note && (
+          {app.reviewer_note && (
             <div className="mb-6 p-4 bg-destructive/10 border border-destructive/30 rounded-lg">
               <p className="text-sm text-muted-foreground font-display font-bold mb-2">
                 Feedback from Staff:
               </p>
               <p className="text-sm text-foreground">
-                {user.application.reviewer_note}
+                {app.reviewer_note}
               </p>
             </div>
           )}

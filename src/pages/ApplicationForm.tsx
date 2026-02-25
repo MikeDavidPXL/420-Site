@@ -25,10 +25,11 @@ const ApplicationForm = () => {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Guard: staff / private → pack page, no session → login
+  // Guard: Discord roles are the truth for access.
+  // staff / private → pack page, no session → login, no koth → dashboard
   if (!authLoading && !user) return <Navigate to="/" replace />;
-  if (!authLoading && user && (user.is_staff || user.is_private)) return <Navigate to="/pack" replace />;
-  if (!authLoading && user && !user.is_koth) return <Navigate to="/dashboard" replace />;
+  if (!authLoading && user && user.effective_status === "accepted") return <Navigate to="/pack" replace />;
+  if (!authLoading && user && user.effective_status !== "koth") return <Navigate to="/dashboard" replace />;
 
   if (authLoading) {
     return (

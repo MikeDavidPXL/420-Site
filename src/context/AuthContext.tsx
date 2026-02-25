@@ -2,7 +2,7 @@ import React, { createContext, useContext, useEffect, useState } from "react";
 
 export interface Application {
   id: string;
-  status: "pending" | "accepted" | "rejected";
+  status: "pending" | "accepted" | "rejected" | "revoked";
   created_at: string;
   reviewer_note?: string;
 }
@@ -15,6 +15,7 @@ export interface User {
   is_staff: boolean;
   is_private: boolean;
   is_koth: boolean;
+  effective_status: "accepted" | "koth" | "none";
   application: Application | null;
 }
 
