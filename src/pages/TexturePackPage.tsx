@@ -47,12 +47,17 @@ const features = [
 // ── Staff members configuration ─────────────────────────────
 const staffMembers = [
   {
-    name: "M1K3",
+    name: "Jam",
     role: "Owner",
     avatar_url: "/images/staff/mike.png",
   },
   {
-    name: "WebDev",
+    name: "Zuo",
+    role: "Owner",
+    avatar_url: "/images/staff/mike.png",
+  },
+  {
+    name: "Mike",
     role: "Web Developer",
     avatar_url: "/images/staff/webdev.png",
   },
