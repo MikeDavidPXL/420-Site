@@ -373,11 +373,17 @@ const handler: Handler = async (event) => {
 
     // Calculate time & rank fields
     const isActive = status === "active";
-    // For active + tagged members: counting_since = join_date
-    // For inactive or not tagged: frozen with whatever days from CSV
+    const csvDays = Math.max(0, timeCsv || 0);
+
+    // Use CSV "Time in Clan (days)" as the accumulated days (source of truth).
+    // For active + tagged: store csvDays as frozen_days, counting_since = now
+    //   → at import time: total = csvDays + 0 = csvDays (exact match)
+    //   → after import: grows by +1 per day naturally
+    // For inactive or not tagged: frozen_days = csvDays, counting_since = null
+    //   → stays frozen at csvDays until re-activated
     const countingSince =
-      isActive && detectedTag ? `${joinDate}T00:00:00.000Z` : null;
-    const frozenDays = countingSince ? 0 : Math.max(0, timeCsv || 0);
+      isActive && detectedTag ? new Date().toISOString() : null;
+    const frozenDays = csvDays;
 
     const effectiveDays = computeTimeDays(frozenDays, countingSince);
     const earned = earnedRank(effectiveDays);
