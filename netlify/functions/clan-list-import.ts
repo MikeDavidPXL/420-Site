@@ -58,10 +58,10 @@ function normalizeRow(
 
 // Normalize rank name to a known rank
 function normalizeRank(raw: string | undefined): string {
-  if (!raw) return "Recruit";
+  if (!raw) return "Private";
   const lower = raw.toLowerCase().trim();
   const found = RANK_LADDER.find((r) => r.name.toLowerCase() === lower);
-  return found ? found.name : "Recruit";
+  return found ? found.name : "Private";
 }
 
 // Parse date from various formats

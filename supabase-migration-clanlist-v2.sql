@@ -11,7 +11,7 @@ CREATE TABLE IF NOT EXISTS clan_list_members (
   status TEXT NOT NULL DEFAULT 'active'
     CHECK (status IN ('active', 'inactive')),
   has_420_tag BOOLEAN NOT NULL DEFAULT false,
-  rank_current TEXT NOT NULL DEFAULT 'Recruit',
+  rank_current TEXT NOT NULL DEFAULT 'Private',
   rank_next TEXT,                                     -- computed, cached
   frozen_days INTEGER NOT NULL DEFAULT 0,             -- accumulated counted days before freeze
   counting_since TIMESTAMPTZ,                         -- null = frozen, non-null = counting from this ts

@@ -89,7 +89,7 @@ export interface RankDef {
 }
 
 export const RANK_LADDER: RankDef[] = [
-  { name: "Recruit",    roleId: null,                    daysRequired: 0  },
+  { name: "Private",    roleId: null,                    daysRequired: 0  },
   { name: "Corporal",   roleId: "1374050435484094525",   daysRequired: 14 },
   { name: "Sergeant",   roleId: "1378450788069933206",   daysRequired: 30 },
   { name: "Lieutenant", roleId: "1378450714845778022",   daysRequired: 60 },
@@ -100,7 +100,7 @@ export const RANK_ROLE_IDS = RANK_LADDER
   .map((r) => r.roleId)
   .filter(Boolean) as string[];
 
-/** Get the rank index (0 = Recruit, 4 = Major) */
+/** Get the rank index (0 = Private, 4 = Major) */
 export function rankIndex(name: string): number {
   const idx = RANK_LADDER.findIndex(
     (r) => r.name.toLowerCase() === name.toLowerCase()

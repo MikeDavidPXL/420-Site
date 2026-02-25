@@ -115,7 +115,7 @@ const handler: Handler = async (event) => {
       (upd.counting_since as string | null) ?? existing.counting_since;
     const days = computeTimeDays(frozenDays, countingSince);
     const currentRank =
-      (upd.rank_current as string) ?? existing.rank_current ?? "Recruit";
+      (upd.rank_current as string) ?? existing.rank_current ?? "Private";
     const earned = earnedRank(days);
     const currentIdx = rankIndex(currentRank);
     const earnedIdx = RANK_LADDER.indexOf(earned);
@@ -160,7 +160,7 @@ const handler: Handler = async (event) => {
 
   const status = body.status ?? "active";
   const hasTag = body.has_420_tag ?? false;
-  const rankCurrent = body.rank_current ?? "Recruit";
+  const rankCurrent = body.rank_current ?? "Private";
   const isActive = status === "active" && hasTag;
 
   const countingSince = isActive

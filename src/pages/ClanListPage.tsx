@@ -73,7 +73,7 @@ interface PromotionPreview {
   }[];
 }
 
-const RANKS = ["Recruit", "Corporal", "Sergeant", "Lieutenant", "Major"];
+const RANKS = ["Private", "Corporal", "Sergeant", "Lieutenant", "Major"];
 
 // ══════════════════════════════════════════════════════════
 //  CLAN LIST PAGE
@@ -118,7 +118,7 @@ const ClanListPage = () => {
     join_date: new Date().toISOString().split("T")[0],
     status: "active" as "active" | "inactive",
     has_420_tag: false,
-    rank_current: "Recruit",
+    rank_current: "Private",
   });
   const [addSaving, setAddSaving] = useState(false);
   const [addError, setAddError] = useState<string | null>(null);
@@ -256,7 +256,7 @@ const ClanListPage = () => {
         join_date: new Date().toISOString().split("T")[0],
         status: "active",
         has_420_tag: false,
-        rank_current: "Recruit",
+        rank_current: "Private",
       });
       fetchMembers(page, debouncedSearch);
     } catch {
