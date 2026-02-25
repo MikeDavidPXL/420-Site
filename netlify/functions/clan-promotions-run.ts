@@ -261,6 +261,8 @@ const handler: Handler = async (event) => {
       announcement
     );
 
+    console.log(`[promotions-run] Announcement to ${ANNOUNCEMENT_CHANNEL}: ${announcementPosted ? "SUCCESS" : "FAILED"}`);
+
     await supabase.from("audit_log").insert({
       action: announcementPosted
         ? "clan_promotion_announced"

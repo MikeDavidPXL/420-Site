@@ -221,6 +221,10 @@ export async function postChannelMessage(
     },
     body: JSON.stringify({ content }),
   });
+  if (!res.ok) {
+    const body = await res.text().catch(() => "");
+    console.error(`postChannelMessage failed: ${res.status} ${res.statusText}`, body);
+  }
   return res.ok;
 }
 
