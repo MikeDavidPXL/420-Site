@@ -75,6 +75,13 @@ interface PromotionPreview {
   }[];
 }
 
+interface ResolveCandidate {
+  discord_id: string;
+  display_name: string;
+  username: string;
+  nick: string | null;
+}
+
 const RANKS = ["Private", "Corporal", "Sergeant", "Lieutenant", "Major"];
 
 // ══════════════════════════════════════════════════════════
@@ -115,6 +122,7 @@ const ClanListPage = () => {
   const [showAddForm, setShowAddForm] = useState(false);
   const [addForm, setAddForm] = useState({
     discord_name: "",
+    discord_id: "",
     ign: "",
     uid: "",
     join_date: new Date().toISOString().split("T")[0],
@@ -125,6 +133,11 @@ const ClanListPage = () => {
   });
   const [addSaving, setAddSaving] = useState(false);
   const [addError, setAddError] = useState<string | null>(null);
+  const [resolving, setResolving] = useState(false);
+  const [resolveCandidates, setResolveCandidates] = useState<ResolveCandidate[]>(
+    []
+  );
+  const [saveUnresolvedAllowed, setSaveUnresolvedAllowed] = useState(false);
   const [uiError, setUiError] = useState<string | null>(null);
 
   // ── Inline editing ──────────────────────────────────────
@@ -236,7 +249,42 @@ const ClanListPage = () => {
   };
 
   // ── Add member ──────────────────────────────────────────
-  const handleAddMember = async () => {
+  const findDiscordCandidates = async () => {
+    if (!addForm.discord_name.trim()) {
+      setAddError("Discord name is required to resolve.");
+      return;
+    }
+
+    setResolving(true);
+    setAddError(null);
+    setSaveUnresolvedAllowed(false);
+    try {
+      const q = encodeURIComponent(addForm.discord_name.trim());
+      const res = await fetch(`/.netlify/functions/guild-member-search?q=${q}`);
+      const data = await res.json();
+      if (!res.ok) {
+        setAddError(data?.error || "Failed to search Discord members.");
+        return;
+      }
+
+      const candidates: ResolveCandidate[] = data?.candidates ?? [];
+      setResolveCandidates(candidates);
+
+      if (candidates.length === 1) {
+        setAddForm((f) => ({
+          ...f,
+          discord_id: candidates[0].discord_id,
+          discord_name: candidates[0].display_name || f.discord_name,
+        }));
+      }
+    } catch {
+      setAddError("Network error while searching Discord members.");
+    } finally {
+      setResolving(false);
+    }
+  };
+
+  const handleAddMember = async (allowUnresolved = false) => {
     if (
       !addForm.discord_name ||
       !addForm.ign ||
@@ -252,16 +300,33 @@ const ClanListPage = () => {
       const res = await fetch("/.netlify/functions/clan-list-member", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(addForm),
+        body: JSON.stringify({
+          ...addForm,
+          discord_id: addForm.discord_id || null,
+          allow_unresolved: allowUnresolved,
+        }),
       });
       const result = await res.json();
       if (!res.ok) {
+        if (result?.code === "DISCORD_AMBIGUOUS") {
+          const candidates: ResolveCandidate[] = result?.candidates ?? [];
+          setResolveCandidates(candidates);
+          setAddError("Multiple Discord matches found. Please choose one.");
+          return;
+        }
+        if (result?.code === "DISCORD_NOT_FOUND") {
+          setResolveCandidates([]);
+          setSaveUnresolvedAllowed(true);
+          setAddError("No Discord user found. You can still save this row as unresolved.");
+          return;
+        }
         setAddError(result.error || "Failed to add member");
         return;
       }
       setShowAddForm(false);
       setAddForm({
         discord_name: "",
+        discord_id: "",
         ign: "",
         uid: "",
         join_date: new Date().toISOString().split("T")[0],
@@ -270,6 +335,8 @@ const ClanListPage = () => {
         rank_current: "Private",
         source: "manual",
       });
+      setResolveCandidates([]);
+      setSaveUnresolvedAllowed(false);
       fetchMembers(page, debouncedSearch);
     } catch {
       setAddError("Network error");
@@ -559,16 +626,33 @@ const ClanListPage = () => {
                     <label className="text-xs text-muted-foreground mb-1 block">
                       Discord Name *
                     </label>
-                    <input
-                      value={addForm.discord_name}
-                      onChange={(e) =>
-                        setAddForm((f) => ({
-                          ...f,
-                          discord_name: e.target.value,
-                        }))
-                      }
-                      className="w-full bg-muted border border-border rounded-lg px-3 py-2 text-sm text-foreground focus:ring-2 focus:ring-secondary/50 focus:outline-none"
-                    />
+                    <div className="flex gap-2">
+                      <input
+                        value={addForm.discord_name}
+                        onChange={(e) =>
+                          setAddForm((f) => ({
+                            ...f,
+                            discord_name: e.target.value,
+                            discord_id: "",
+                          }))
+                        }
+                        onBlur={findDiscordCandidates}
+                        className="w-full bg-muted border border-border rounded-lg px-3 py-2 text-sm text-foreground focus:ring-2 focus:ring-secondary/50 focus:outline-none"
+                      />
+                      <button
+                        type="button"
+                        onClick={findDiscordCandidates}
+                        disabled={resolving || !addForm.discord_name.trim()}
+                        className="px-3 py-2 rounded-lg border border-secondary/40 text-secondary hover:bg-secondary/10 text-xs font-display font-bold disabled:opacity-50"
+                      >
+                        {resolving ? "..." : "Find"}
+                      </button>
+                    </div>
+                    {addForm.discord_id && (
+                      <p className="text-xs text-green-400 mt-1">
+                        Resolved: {addForm.discord_id}
+                      </p>
+                    )}
                   </div>
                   <div>
                     <label className="text-xs text-muted-foreground mb-1 block">
@@ -666,21 +750,60 @@ const ClanListPage = () => {
                     </label>
                   </div>
                 </div>
+                {resolveCandidates.length > 1 && (
+                  <div>
+                    <label className="text-xs text-muted-foreground mb-1 block">
+                      Select Discord Match
+                    </label>
+                    <select
+                      value={addForm.discord_id}
+                      onChange={(e) => {
+                        const selected = resolveCandidates.find(
+                          (c) => c.discord_id === e.target.value
+                        );
+                        setAddForm((f) => ({
+                          ...f,
+                          discord_id: e.target.value,
+                          discord_name: selected?.display_name || f.discord_name,
+                        }));
+                      }}
+                      className="w-full bg-muted border border-border rounded-lg px-3 py-2 text-sm text-foreground focus:ring-2 focus:ring-secondary/50 focus:outline-none"
+                    >
+                      <option value="">Choose a Discord user...</option>
+                      {resolveCandidates.map((c) => (
+                        <option key={c.discord_id} value={c.discord_id}>
+                          {c.display_name} (@{c.username}) {c.nick ? `nick: ${c.nick}` : ""}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                )}
                 {addError && (
                   <p className="text-sm text-destructive">{addError}</p>
                 )}
-                <button
-                  onClick={handleAddMember}
-                  disabled={addSaving}
-                  className="inline-flex items-center gap-2 bg-secondary hover:bg-secondary/90 text-secondary-foreground font-display font-bold px-5 py-2 rounded-lg transition disabled:opacity-50"
-                >
-                  {addSaving ? (
-                    <Loader2 className="w-4 h-4 animate-spin" />
-                  ) : (
-                    <Save className="w-4 h-4" />
+                <div className="flex flex-wrap gap-2">
+                  <button
+                    onClick={() => handleAddMember(false)}
+                    disabled={addSaving}
+                    className="inline-flex items-center gap-2 bg-secondary hover:bg-secondary/90 text-secondary-foreground font-display font-bold px-5 py-2 rounded-lg transition disabled:opacity-50"
+                  >
+                    {addSaving ? (
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                    ) : (
+                      <Save className="w-4 h-4" />
+                    )}
+                    Save Member
+                  </button>
+                  {saveUnresolvedAllowed && (
+                    <button
+                      onClick={() => handleAddMember(true)}
+                      disabled={addSaving}
+                      className="inline-flex items-center gap-2 border border-yellow-400/40 text-yellow-400 hover:bg-yellow-400/10 font-display font-bold px-5 py-2 rounded-lg transition disabled:opacity-50"
+                    >
+                      Save as Unresolved
+                    </button>
                   )}
-                  Save Member
-                </button>
+                </div>
               </div>
             </motion.div>
           )}

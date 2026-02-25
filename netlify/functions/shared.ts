@@ -145,6 +145,83 @@ export interface GuildMember {
   roles: string[];
 }
 
+export interface GuildMemberCandidate {
+  discord_id: string;
+  display_name: string;
+  username: string;
+  nick: string | null;
+}
+
+export function normalizeLookup(input: string | null | undefined): string {
+  return (input ?? "")
+    .toLowerCase()
+    .replace(/[
+]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function memberFields(member: GuildMember) {
+  const username = member.user.username ?? "";
+  const globalName = member.user.global_name ?? "";
+  const nick = member.nick ?? "";
+  const displayName = nick || globalName || username;
+  return {
+    username,
+    globalName,
+    nick,
+    displayName,
+    usernameNorm: normalizeLookup(username),
+    globalNorm: normalizeLookup(globalName),
+    nickNorm: normalizeLookup(nick),
+  };
+}
+
+export function guildMemberToCandidate(member: GuildMember): GuildMemberCandidate {
+  const fields = memberFields(member);
+  return {
+    discord_id: member.user.id,
+    display_name: fields.displayName,
+    username: fields.username,
+    nick: member.nick ?? null,
+  };
+}
+
+export function searchGuildMemberCandidates(
+  guildMembers: GuildMember[],
+  query: string,
+  limit = 20
+): GuildMemberCandidate[] {
+  const q = normalizeLookup(query);
+  if (!q) return [];
+
+  const ranked = guildMembers
+    .map((member) => {
+      const fields = memberFields(member);
+      const exact =
+        fields.usernameNorm === q || fields.globalNorm === q || fields.nickNorm === q;
+      const starts =
+        fields.usernameNorm.startsWith(q) ||
+        fields.globalNorm.startsWith(q) ||
+        fields.nickNorm.startsWith(q);
+      const contains =
+        fields.usernameNorm.includes(q) ||
+        fields.globalNorm.includes(q) ||
+        fields.nickNorm.includes(q);
+
+      let score = 0;
+      if (exact) score = 3;
+      else if (starts) score = 2;
+      else if (contains) score = 1;
+
+      return { member, score };
+    })
+    .filter((x) => x.score > 0)
+    .sort((a, b) => b.score - a.score);
+
+  return ranked.slice(0, limit).map((x) => guildMemberToCandidate(x.member));
+}
+
 export async function fetchAllGuildMembers(): Promise<GuildMember[]> {
   const allMembers: GuildMember[] = [];
   let after = "0";
@@ -172,29 +249,9 @@ export function resolveDiscordId(
   displayName: string,
   guildMembers: GuildMember[]
 ): { id: string | null; multiple: boolean } {
-  const lower = displayName.toLowerCase().replace(/[\r\n]+/g, "").trim();
-  if (!lower) return { id: null, multiple: false };
-
-  const clean = (s: string | null | undefined) =>
-    (s ?? "").toLowerCase().replace(/[\r\n]+/g, "").trim();
-
-  // 1. Exact match on username / global_name / nick
-  const exact = guildMembers.filter((m) => {
-    const un = clean(m.user.username);
-    const gn = clean(m.user.global_name);
-    const nn = clean(m.nick);
-    return un === lower || gn === lower || nn === lower;
-  });
-  if (exact.length === 1) return { id: exact[0].user.id, multiple: false };
-  if (exact.length > 1) return { id: null, multiple: true };
-
-  // 2. Username starts-with or contains (for names with trailing junk)
-  const partial = guildMembers.filter((m) => {
-    const un = clean(m.user.username);
-    return un.startsWith(lower) || lower.startsWith(un);
-  });
-  if (partial.length === 1) return { id: partial[0].user.id, multiple: false };
-
+  const candidates = searchGuildMemberCandidates(guildMembers, displayName, 25);
+  if (candidates.length === 1) return { id: candidates[0].discord_id, multiple: false };
+  if (candidates.length > 1) return { id: null, multiple: true };
   return { id: null, multiple: false };
 }
 

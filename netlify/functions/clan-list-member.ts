@@ -12,6 +12,9 @@ import {
   nextRankFor,
   rankIndex,
   RANK_LADDER,
+  fetchAllGuildMembers,
+  searchGuildMemberCandidates,
+  normalizeLookup,
 } from "./shared";
 
 interface MemberBody {
@@ -26,6 +29,7 @@ interface MemberBody {
   rank_current?: string;
   needs_resolution?: boolean;
   source?: "csv" | "manual" | "application";
+  allow_unresolved?: boolean;
 }
 
 const handler: Handler = async (event) => {
@@ -56,6 +60,16 @@ const handler: Handler = async (event) => {
   }
 
   const isUpdate = !!body.id;
+  const nowIso = new Date().toISOString();
+
+  const validateDiscordIdInGuild = async (discordId: string) => {
+    const found = await discordFetch(
+      `/guilds/${process.env.DISCORD_GUILD_ID}/members/${discordId}`,
+      process.env.DISCORD_BOT_TOKEN!,
+      true
+    );
+    return !!found;
+  };
 
   // ── UPDATE ────────────────────────────────────────────────
   if (isUpdate) {
@@ -71,9 +85,30 @@ const handler: Handler = async (event) => {
     }
 
     // Merge fields
-    const upd: Record<string, unknown> = { updated_at: new Date().toISOString() };
+    const upd: Record<string, unknown> = { updated_at: nowIso };
     if (body.discord_name !== undefined) upd.discord_name = body.discord_name;
-    if (body.discord_id !== undefined) upd.discord_id = body.discord_id;
+    if (body.discord_id !== undefined) {
+      if (body.discord_id) {
+        const valid = await validateDiscordIdInGuild(body.discord_id);
+        if (!valid) {
+          return json(
+            { error: "Selected discord_id is not in guild", code: "DISCORD_NOT_IN_GUILD" },
+            400
+          );
+        }
+        upd.discord_id = body.discord_id;
+        upd.needs_resolution = false;
+        upd.resolution_status = "resolved_manual";
+        upd.resolved_at = nowIso;
+        upd.resolved_by = session.discord_id;
+      } else {
+        upd.discord_id = null;
+        upd.needs_resolution = true;
+        upd.resolution_status = "unresolved";
+        upd.resolved_at = null;
+        upd.resolved_by = null;
+      }
+    }
     if (body.ign !== undefined) upd.ign = body.ign;
     if (body.uid !== undefined) upd.uid = body.uid;
     if (body.join_date !== undefined) upd.join_date = body.join_date;
@@ -144,6 +179,17 @@ const handler: Handler = async (event) => {
       return json({ error: "Update failed" }, 500);
     }
 
+    await supabase.from("audit_log").insert({
+      action: "clan_member_saved",
+      actor_id: session.discord_id,
+      target_id: result.id,
+      details: {
+        old_discord_id: existing.discord_id ?? null,
+        new_discord_id: result.discord_id ?? null,
+        resolution_status: result.resolution_status ?? null,
+      },
+    });
+
     // Reattach computed days
     return json({
       ok: true,
@@ -164,6 +210,75 @@ const handler: Handler = async (event) => {
   const rankCurrent = body.rank_current ?? "Private";
   const isActive = status === "active" && hasTag;
 
+  let resolvedDiscordId: string | null = body.discord_id ?? null;
+  let resolutionStatus: "unresolved" | "resolved_auto" | "resolved_manual" =
+    body.discord_id ? "resolved_manual" : "unresolved";
+  let resolvedAt: string | null = null;
+  let resolvedBy: string | null = null;
+
+  if (resolvedDiscordId) {
+    const valid = await validateDiscordIdInGuild(resolvedDiscordId);
+    if (!valid) {
+      return json(
+        { error: "Selected discord_id is not in guild", code: "DISCORD_NOT_IN_GUILD" },
+        400
+      );
+    }
+    resolutionStatus = "resolved_manual";
+    resolvedAt = nowIso;
+    resolvedBy = session.discord_id;
+  } else {
+    const guildMembers = await fetchAllGuildMembers();
+    const candidates = searchGuildMemberCandidates(guildMembers, body.discord_name);
+
+    const normalizedQuery = normalizeLookup(body.discord_name);
+    const exact = candidates.filter((c) => {
+      return (
+        normalizeLookup(c.username) === normalizedQuery ||
+        normalizeLookup(c.display_name) === normalizedQuery ||
+        normalizeLookup(c.nick ?? "") === normalizedQuery
+      );
+    });
+
+    if (exact.length === 1) {
+      resolvedDiscordId = exact[0].discord_id;
+      resolutionStatus = "resolved_auto";
+      resolvedAt = nowIso;
+      resolvedBy = null;
+    } else if (exact.length > 1) {
+      return json(
+        {
+          error: "Multiple Discord users match this name. Please choose one.",
+          code: "DISCORD_AMBIGUOUS",
+          candidates: exact.slice(0, 20),
+        },
+        409
+      );
+    } else if (candidates.length === 1) {
+      resolvedDiscordId = candidates[0].discord_id;
+      resolutionStatus = "resolved_auto";
+      resolvedAt = nowIso;
+      resolvedBy = null;
+    } else if (candidates.length > 1) {
+      return json(
+        {
+          error: "Multiple Discord users match this name. Please choose one.",
+          code: "DISCORD_AMBIGUOUS",
+          candidates: candidates.slice(0, 20),
+        },
+        409
+      );
+    } else if (!body.allow_unresolved) {
+      return json(
+        {
+          error: "No Discord user found for this name.",
+          code: "DISCORD_NOT_FOUND",
+        },
+        404
+      );
+    }
+  }
+
   const countingSince = isActive
     ? `${body.join_date}T00:00:00.000Z`
     : null;
@@ -176,7 +291,7 @@ const handler: Handler = async (event) => {
 
   const record = {
     discord_name: body.discord_name,
-    discord_id: body.discord_id ?? null,
+    discord_id: resolvedDiscordId,
     ign: body.ign,
     uid: body.uid,
     join_date: body.join_date,
@@ -192,8 +307,11 @@ const handler: Handler = async (event) => {
       isActive && earnedIdx > currentIdx && nxt
         ? `${days} days in clan, meets ${earned.name} threshold (${earned.daysRequired} days)`
         : null,
-    needs_resolution: body.needs_resolution ?? !body.discord_id,
+    needs_resolution: resolvedDiscordId ? false : (body.needs_resolution ?? true),
     source: "manual" as const,
+    resolution_status: resolutionStatus,
+    resolved_at: resolvedAt,
+    resolved_by: resolvedBy,
   };
 
   const { data: created, error: createErr } = await supabase
@@ -217,7 +335,13 @@ const handler: Handler = async (event) => {
     action: "clan_member_added",
     actor_id: session.discord_id,
     target_id: created.id,
-    details: { discord_name: body.discord_name, ign: body.ign, uid: body.uid },
+    details: {
+      discord_name: body.discord_name,
+      ign: body.ign,
+      uid: body.uid,
+      discord_id: resolvedDiscordId,
+      resolution_status: resolutionStatus,
+    },
   });
 
   return json({

@@ -57,6 +57,9 @@ async function upsertClanMemberFromApplication(
     counting_since: acceptedAtIso,
     source: "application" as const,
     needs_resolution: false,
+    resolution_status: "resolved_auto" as const,
+    resolved_at: acceptedAtIso,
+    resolved_by: null,
     updated_at: acceptedAtIso,
   };
 

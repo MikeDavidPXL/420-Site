@@ -427,6 +427,9 @@ const handler: Handler = async (event) => {
         ? `${effectiveDays} days in clan, meets ${nxt.name} threshold (${nxt.daysRequired} days)`
         : null,
       needs_resolution: needsResolution,
+      resolution_status: discordId ? "resolved_auto" : "unresolved",
+      resolved_at: discordId ? new Date().toISOString() : null,
+      resolved_by: null,
       source: SOURCE_CSV,
       updated_at: new Date().toISOString(),
     };
