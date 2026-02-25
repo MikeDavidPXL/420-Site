@@ -47,7 +47,7 @@ const VerifyPage = () => {
     };
   }, []);
 
-  // ── Render Turnstile widget when script is ready ────────
+  // ── Render Turnstile widget when script is ready AND ref is mounted ──
   useEffect(() => {
     if (!captchaReady || !widgetRef.current || !window.turnstile) return;
     // Don't render twice
@@ -78,7 +78,8 @@ const VerifyPage = () => {
     } catch {
       setError("Failed to initialize captcha. Please refresh the page.");
     }
-  }, [captchaReady]);
+    // Re-run when authLoading changes so the effect fires after the ref is mounted
+  }, [captchaReady, authLoading]);
 
   // ── Reset captcha helper ────────────────────────────────
   const resetCaptcha = useCallback(() => {
