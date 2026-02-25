@@ -1,7 +1,7 @@
 // /.netlify/functions/admin-review
 // POST: accept or reject an application (staff only)
 // On accept: assign Private role, remove KOTH role, upsert clan_list_members
-// Posts all logs to the application's Discord thread
+// Posts all logs to Discord channel with staff ping
 import type { Handler } from "@netlify/functions";
 import {
   getSessionFromCookie,
@@ -152,13 +152,15 @@ const handler: Handler = async (event) => {
     });
 
     if (!upsert.ok) {
-      // Log retry failure to thread
+      // Log retry failure to channel
       try {
-        await postAppLog(
-          app.log_thread_id,
-          application_id,
-          `⚠️ **Retry create clan member failed**\nError: ${upsert.error}`
-        );
+        const logMsg = [
+          `⚠️ **Retry create clan member failed**`,
+          `Applicant: <@${app.discord_id}> (${app.discord_name})`,
+          `UID: ${app.uid || "N/A"}`,
+          `Error: ${upsert.error}`,
+        ].join("\n");
+        await postAppLog(logMsg);
       } catch {}
 
       return json(
@@ -171,13 +173,15 @@ const handler: Handler = async (event) => {
       );
     }
 
-    // Log retry success to thread
+    // Log retry success to channel
     try {
-      await postAppLog(
-        app.log_thread_id,
-        application_id,
-        `✅ **Retry create clan member succeeded**\nClan member ID: ${upsert.clanMemberId}`
-      );
+      const logMsg = [
+        `✅ **Retry create clan member succeeded**`,
+        `Applicant: <@${app.discord_id}> (${app.discord_name})`,
+        `UID: ${app.uid || "N/A"}`,
+        `Clan member ID: ${upsert.clanMemberId}`,
+      ].join("\n");
+      await postAppLog(logMsg);
     } catch {}
 
     return json({
@@ -229,13 +233,16 @@ const handler: Handler = async (event) => {
         error: upsert.error,
       });
 
-      // Log upsert failure to thread
+      // Log upsert failure to channel
       try {
-        await postAppLog(
-          app.log_thread_id,
-          application_id,
-          `⚠️ **Application accepted but clan member creation failed**\nError: ${upsert.error}\nUse "Retry" button to try again.`
-        );
+        const logMsg = [
+          `⚠️ **Application accepted but clan member creation failed**`,
+          `Applicant: <@${app.discord_id}> (${app.discord_name})`,
+          `UID: ${app.uid || "N/A"}`,
+          `Error: ${upsert.error}`,
+          `Use "Retry" button to try again.`,
+        ].join("\n");
+        await postAppLog(logMsg);
       } catch {}
 
       await supabase.from("audit_log").insert({
@@ -270,21 +277,24 @@ const handler: Handler = async (event) => {
       process.env.DISCORD_KOTH_PLAYER_ROLE_ID!
     );
 
-    // 3. Discord thread logging — accept + role swap
+    // 3. Discord channel logging — accept + role swap
     try {
+      // Accept message
       const acceptMsg = [
         `✅ **Application accepted**`,
+        `Applicant: <@${app.discord_id}> (${app.discord_name})`,
+        `UID: ${app.uid || "N/A"}`,
         `Accepted by: <@${session.discord_id}>`,
         note ? `Note: ${note}` : null,
       ]
         .filter(Boolean)
         .join("\n");
+      await postAppLog(acceptMsg);
 
-      await postAppLog(app.log_thread_id, application_id, acceptMsg);
-
-      // Role swap result
+      // Role swap result message (separate)
       const roleMsg = [
-        `🔄 **Role update**`,
+        `🔄 **Role update result**`,
+        `Applicant: <@${app.discord_id}>`,
         `Private added: ${roleAssigned ? "✓" : "✗"}`,
         `KOTH removed: ${roleRemoved ? "✓" : "✗"}`,
         !roleAssigned || !roleRemoved
@@ -293,10 +303,9 @@ const handler: Handler = async (event) => {
       ]
         .filter(Boolean)
         .join("\n");
-
-      await postAppLog(app.log_thread_id, application_id, roleMsg);
+      await postAppLog(roleMsg);
     } catch (logErr: any) {
-      console.error("Accept thread log error:", logErr);
+      console.error("Accept channel log error:", logErr);
       await supabase.from("audit_log").insert({
         action: "application_accept_log_error",
         target_id: application_id,
@@ -307,7 +316,7 @@ const handler: Handler = async (event) => {
 
     // 4. Audit log
     await supabase.from("audit_log").insert({
-      action: "clan_member_created_from_accept",
+      action: "application_accepted",
       target_id: application_id,
       actor_id: session.discord_id,
       details: {
@@ -319,6 +328,19 @@ const handler: Handler = async (event) => {
         role_removed: roleRemoved,
         clan_member_id: upsert.clanMemberId,
         discord_role_result: { assigned: roleAssigned, removed: roleRemoved },
+      },
+    });
+
+    // Separate audit log entry for role update
+    await supabase.from("audit_log").insert({
+      action: "application_role_update",
+      target_id: application_id,
+      actor_id: session.discord_id,
+      details: {
+        application_id,
+        discord_id: app.discord_id,
+        private_added: roleAssigned,
+        koth_removed: roleRemoved,
       },
     });
 
@@ -353,10 +375,12 @@ const handler: Handler = async (event) => {
     return json({ error: "Failed to update application" }, 500);
   }
 
-  // Discord thread logging — deny
+  // Discord channel logging — deny
   try {
     const denyMsg = [
       `❌ **Application denied**`,
+      `Applicant: <@${app.discord_id}> (${app.discord_name})`,
+      `UID: ${app.uid || "N/A"}`,
       `Denied by: <@${session.discord_id}>`,
       deny_reason ? `Reason: ${deny_reason}` : null,
       note ? `Note: ${note}` : null,
@@ -364,9 +388,9 @@ const handler: Handler = async (event) => {
       .filter(Boolean)
       .join("\n");
 
-    await postAppLog(app.log_thread_id, application_id, denyMsg);
+    await postAppLog(denyMsg);
   } catch (logErr: any) {
-    console.error("Deny thread log error:", logErr);
+    console.error("Deny channel log error:", logErr);
     await supabase.from("audit_log").insert({
       action: "application_deny_log_error",
       target_id: application_id,
@@ -381,6 +405,9 @@ const handler: Handler = async (event) => {
     target_id: application_id,
     actor_id: session.discord_id,
     details: {
+      application_id,
+      discord_id: app.discord_id,
+      deny_reason: deny_reason || null,
       note: note || null,
     },
   });

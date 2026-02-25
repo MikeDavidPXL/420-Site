@@ -6,10 +6,7 @@ import {
   discordFetch,
   supabase,
   json,
-  postChannelMessageRaw,
-  createThreadFromMessage,
-  postThreadMessage,
-  APP_LOG_CHANNEL_ID,
+  postAppLog,
 } from "./shared";
 
 const handler: Handler = async (event) => {
@@ -157,72 +154,24 @@ const handler: Handler = async (event) => {
     });
   }
 
-  // ── Discord thread logging ────────────────────────────────
-  let logMessageId: string | null = null;
-  let logThreadId: string | null = null;
-
+  // ── Discord channel logging ───────────────────────────────
   try {
-    // 1. Post parent message in log channel
-    const parentContent = [
+    const logContent = [
       `📋 **New application submitted**`,
       `Applicant: <@${session.discord_id}> (${session.username})`,
       `UID: ${uid}`,
       `Review: https://420-site.netlify.app/admin`,
     ].join("\n");
 
-    const msgResult = await postChannelMessageRaw(APP_LOG_CHANNEL_ID, parentContent);
-    if (msgResult.ok && msgResult.id) {
-      logMessageId = msgResult.id;
-
-      // 2. Create thread from parent message
-      const threadName = uid
-        ? `app-${uid}-${session.username}`
-        : `app-${session.discord_id}-${session.username}`;
-
-      const threadResult = await createThreadFromMessage(
-        APP_LOG_CHANNEL_ID,
-        logMessageId,
-        threadName
-      );
-
-      if (threadResult.ok && threadResult.id) {
-        logThreadId = threadResult.id;
-
-        // 3. Post initial thread message
-        await postThreadMessage(
-          logThreadId,
-          `🧵 Thread started. All updates for this application will appear here.`
-        );
-      } else {
-        // Thread creation failed — log error but don't fail the submission
-        console.error("Thread creation failed:", threadResult.error);
-        await supabase.from("audit_log").insert({
-          action: "application_thread_create_failed",
-          target_id: data.id,
-          actor_id: session.discord_id,
-          details: { error: threadResult.error, log_message_id: logMessageId },
-        });
-      }
-    } else {
-      // Parent message failed — log error but don't fail the submission
-      console.error("Log message failed:", msgResult.error);
+    const posted = await postAppLog(logContent);
+    if (!posted) {
+      // Log Discord failure but don't fail submission
       await supabase.from("audit_log").insert({
         action: "application_log_message_failed",
         target_id: data.id,
         actor_id: session.discord_id,
-        details: { error: msgResult.error },
+        details: { error: "Discord message post failed" },
       });
-    }
-
-    // 4. Save IDs on the application row
-    if (logMessageId || logThreadId) {
-      await supabase
-        .from("applications")
-        .update({
-          log_message_id: logMessageId,
-          log_thread_id: logThreadId,
-        })
-        .eq("id", data.id);
     }
   } catch (logErr: any) {
     // Never fail the submission because of logging
@@ -234,6 +183,17 @@ const handler: Handler = async (event) => {
       details: { error: logErr?.message || String(logErr) },
     });
   }
+
+  // Audit log for submission
+  await supabase.from("audit_log").insert({
+    action: "application_submitted",
+    target_id: data.id,
+    actor_id: session.discord_id,
+    details: {
+      uid,
+      discord_name: session.username,
+    },
+  });
 
   return json({ ok: true, application: data }, 201);
 };
