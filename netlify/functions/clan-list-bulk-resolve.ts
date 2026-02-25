@@ -11,6 +11,13 @@ import {
   normalizeLookup,
 } from "./shared";
 
+function normalizeUid(input: unknown): string {
+  return String(input ?? "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]/g, "")
+    .trim();
+}
+
 function lookupVariants(input: string): string[] {
   const raw = (input ?? "").trim();
   if (!raw) return [];
@@ -58,7 +65,27 @@ const handler: Handler = async (event) => {
     return json({ ok: true, resolved: 0, skipped: 0, ambiguous: 0, not_found: 0, details: [] });
   }
 
-  // 2. Fetch all guild members once
+  // 2. Preload application UID -> discord_id map (normalized)
+  const { data: appRows, error: appFetchErr } = await supabase
+    .from("applications")
+    .select("uid, discord_id, status")
+    .in("status", ["accepted", "pending"])
+    .not("discord_id", "is", null);
+
+  if (appFetchErr) {
+    return json({ error: "Failed to fetch applications for UID mapping" }, 500);
+  }
+
+  const uidToDiscordIds = new Map<string, Set<string>>();
+  for (const app of appRows ?? []) {
+    const uidKey = normalizeUid(app.uid);
+    const did = String(app.discord_id ?? "").trim();
+    if (!uidKey || !did) continue;
+    if (!uidToDiscordIds.has(uidKey)) uidToDiscordIds.set(uidKey, new Set());
+    uidToDiscordIds.get(uidKey)!.add(did);
+  }
+
+  // 3. Fetch all guild members once
   const guildMembers = await fetchAllGuildMembers();
   const nowIso = new Date().toISOString();
 
@@ -66,6 +93,11 @@ const handler: Handler = async (event) => {
   let skipped = 0;
   let ambiguous = 0;
   let notFound = 0;
+  let uidResolved = 0;
+  let nameResolved = 0;
+  let uidMissing = 0;
+  let uidNoMatch = 0;
+  let uidAmbiguous = 0;
   const details: { discord_name: string; result: string }[] = [];
 
   for (const row of unresolved) {
@@ -78,35 +110,30 @@ const handler: Handler = async (event) => {
 
     let matchedId: string | null = null;
 
-    // 2a. Deterministic resolve by UID from applications table
+    // 3a. Deterministic resolve by normalized UID -> applications.discord_id map
     if (row.uid) {
-      const { data: appMatches } = await supabase
-        .from("applications")
-        .select("discord_id")
-        .eq("uid", row.uid)
-        .in("status", ["accepted", "pending"])
-        .not("discord_id", "is", null)
-        .order("accepted_at", { ascending: false })
-        .order("created_at", { ascending: false })
-        .limit(5);
-
-      const uniqueIds = Array.from(
-        new Set((appMatches ?? []).map((a) => a.discord_id).filter(Boolean))
-      ) as string[];
+      const uidKey = normalizeUid(row.uid);
+      const uniqueIds = Array.from(uidToDiscordIds.get(uidKey) ?? []);
 
       if (uniqueIds.length === 1) {
         matchedId = uniqueIds[0];
+        uidResolved++;
       } else if (uniqueIds.length > 1) {
+        uidAmbiguous++;
         ambiguous++;
         details.push({
           discord_name: row.discord_name,
           result: `ambiguous_uid (${uniqueIds.length} application ids)`,
         });
         continue;
+      } else {
+        uidNoMatch++;
       }
+    } else {
+      uidMissing++;
     }
 
-    // 2b. Fallback by name matching against guild members
+    // 3b. Fallback by name matching against guild members
     let candidates = [] as ReturnType<typeof searchGuildMemberCandidates>;
     let exact = [] as ReturnType<typeof searchGuildMemberCandidates>;
 
@@ -133,8 +160,10 @@ const handler: Handler = async (event) => {
 
       if (exact.length === 1) {
         matchedId = exact[0].discord_id;
+        nameResolved++;
       } else if (exact.length === 0 && candidates.length === 1) {
         matchedId = candidates[0].discord_id;
+        nameResolved++;
       }
     }
 
@@ -176,6 +205,13 @@ const handler: Handler = async (event) => {
       skipped,
       ambiguous,
       not_found: notFound,
+      uid_resolved: uidResolved,
+      name_resolved: nameResolved,
+      uid_missing: uidMissing,
+      uid_no_match: uidNoMatch,
+      uid_ambiguous: uidAmbiguous,
+      uid_map_size: uidToDiscordIds.size,
+      guild_member_count: guildMembers.length,
     },
   });
 
@@ -186,6 +222,15 @@ const handler: Handler = async (event) => {
     skipped,
     ambiguous,
     not_found: notFound,
+    debug: {
+      uid_resolved: uidResolved,
+      name_resolved: nameResolved,
+      uid_missing: uidMissing,
+      uid_no_match: uidNoMatch,
+      uid_ambiguous: uidAmbiguous,
+      uid_map_size: uidToDiscordIds.size,
+      guild_member_count: guildMembers.length,
+    },
     details,
   });
 };
