@@ -148,6 +148,10 @@ const ClanListPage = () => {
   const [resolveSaving, setResolveSaving] = useState(false);
   const [resolveError, setResolveError] = useState<string | null>(null);
 
+  // ── Inline discord_name editing ─────────────────────────
+  const [editingNameId, setEditingNameId] = useState<string | null>(null);
+  const [editingNameValue, setEditingNameValue] = useState("");
+
   // ── Inline editing ──────────────────────────────────────
   const [savingField, setSavingField] = useState<string | null>(null);
 
@@ -440,6 +444,27 @@ const ClanListPage = () => {
     } finally {
       setSavingField(null);
     }
+  };
+
+  // ── Inline discord_name editor ────────────────
+  const startEditingName = (id: string, currentName: string) => {
+    setEditingNameId(id);
+    setEditingNameValue(currentName);
+  };
+
+  const saveEditingName = async (id: string) => {
+    if (!editingNameValue.trim()) {
+      setUiError("Discord name cannot be empty.");
+      return;
+    }
+    const trimmedName = editingNameValue.trim();
+    setEditingNameId(null);
+    await updateMember(id, { discord_name: trimmedName });
+  };
+
+  const cancelEditingName = () => {
+    setEditingNameId(null);
+    setEditingNameValue("");
   };
 
   const searchResolveCandidates = async (query: string) => {
@@ -1137,13 +1162,49 @@ const ClanListPage = () => {
                         m.promote_eligible ? "ring-1 ring-green-500/30" : ""
                       }`}
                     >
-                      <td className="px-3 py-2.5 text-foreground whitespace-nowrap max-w-[160px] truncate">
-                        {m.discord_name}
-                        {m.needs_resolution && (
-                          <AlertTriangle
-                            className="w-3 h-3 text-yellow-400 inline ml-1"
-                            title="Needs Discord ID resolution"
-                          />
+                      <td className="px-3 py-2.5 text-foreground whitespace-nowrap max-w-[160px]">
+                        {editingNameId === m.id ? (
+                          <div className="flex items-center gap-1">
+                            <input
+                              type="text"
+                              value={editingNameValue}
+                              onChange={(e) => setEditingNameValue(e.target.value)}
+                              onKeyDown={(e) => {
+                                if (e.key === "Enter") saveEditingName(m.id);
+                                if (e.key === "Escape") cancelEditingName();
+                              }}
+                              className="bg-muted border border-secondary/50 rounded px-2 py-0.5 text-xs w-full focus:outline-none focus:ring-1 focus:ring-secondary"
+                              autoFocus
+                            />
+                            <button
+                              onClick={() => saveEditingName(m.id)}
+                              className="text-green-400 hover:text-green-300 transition p-0.5"
+                              title="Save"
+                            >
+                              <Check className="w-3.5 h-3.5" />
+                            </button>
+                            <button
+                              onClick={cancelEditingName}
+                              className="text-red-400 hover:text-red-300 transition p-0.5"
+                              title="Cancel"
+                            >
+                              <X className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
+                        ) : (
+                          <div
+                            className="truncate cursor-pointer hover:bg-muted/50 rounded px-1 -mx-1 transition"
+                            onClick={() => startEditingName(m.id, m.discord_name)}
+                            title="Click to edit Discord name"
+                          >
+                            {m.discord_name}
+                            {m.needs_resolution && (
+                              <AlertTriangle
+                                className="w-3 h-3 text-yellow-400 inline ml-1"
+                                title="Needs Discord ID resolution"
+                              />
+                            )}
+                          </div>
                         )}
                       </td>
                       <td className="px-3 py-2.5 text-foreground whitespace-nowrap">
@@ -1276,13 +1337,47 @@ const ClanListPage = () => {
                   }`}
                 >
                   <div className="flex items-center justify-between">
-                    <div className="min-w-0">
-                      <p className="font-display font-bold text-sm text-foreground truncate">
-                        {m.discord_name}
-                        {m.needs_resolution && (
-                          <AlertTriangle className="w-3 h-3 text-yellow-400 inline ml-1" />
-                        )}
-                      </p>
+                    <div className="min-w-0 flex-1">
+                      {editingNameId === m.id ? (
+                        <div className="flex items-center gap-1">
+                          <input
+                            type="text"
+                            value={editingNameValue}
+                            onChange={(e) => setEditingNameValue(e.target.value)}
+                            onKeyDown={(e) => {
+                              if (e.key === "Enter") saveEditingName(m.id);
+                              if (e.key === "Escape") cancelEditingName();
+                            }}
+                            className="bg-muted border border-secondary/50 rounded px-2 py-1 text-sm w-full focus:outline-none focus:ring-1 focus:ring-secondary"
+                            autoFocus
+                          />
+                          <button
+                            onClick={() => saveEditingName(m.id)}
+                            className="text-green-400 hover:text-green-300 transition p-1"
+                            title="Save"
+                          >
+                            <Check className="w-4 h-4" />
+                          </button>
+                          <button
+                            onClick={cancelEditingName}
+                            className="text-red-400 hover:text-red-300 transition p-1"
+                            title="Cancel"
+                          >
+                            <X className="w-4 h-4" />
+                          </button>
+                        </div>
+                      ) : (
+                        <p
+                          className="font-display font-bold text-sm text-foreground truncate cursor-pointer hover:bg-muted/50 rounded px-1 -mx-1 transition"
+                          onClick={() => startEditingName(m.id, m.discord_name)}
+                          title="Click to edit Discord name"
+                        >
+                          {m.discord_name}
+                          {m.needs_resolution && (
+                            <AlertTriangle className="w-3 h-3 text-yellow-400 inline ml-1" />
+                          )}
+                        </p>
+                      )}
                       <p className="text-xs text-muted-foreground">
                         {m.ign} · UID: {m.uid}
                       </p>
