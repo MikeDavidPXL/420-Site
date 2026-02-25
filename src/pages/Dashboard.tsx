@@ -70,8 +70,44 @@ const Dashboard = () => {
 
       {/* Content */}
       <div className="relative z-10 container mx-auto px-4 py-16 max-w-2xl">
-        {/* Accepted → SHOW FIRST */}
-        {user.in_guild && user.is_member && (
+        {/* STEP 1: Not in guild */}
+        {!user.in_guild && (
+          <GateCard
+            icon={<ExternalLink className="w-8 h-8 text-primary" />}
+            title="Join our Discord first"
+            description="You need to be in the 420 Clan Discord server before you can apply."
+          >
+            <a
+              href={DISCORD_INVITE}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-2 bg-[#5865F2] hover:bg-[#4752C4] text-white font-display font-bold px-8 py-3 rounded-lg transition hover:scale-105"
+            >
+              <ExternalLink className="w-4 h-4" /> Join Discord
+            </a>
+          </GateCard>
+        )}
+
+        {/* STEP 2: In guild but NO KOTH Player role */}
+        {user.in_guild && !user.is_koth && (
+          <GateCard
+            icon={<ExternalLink className="w-8 h-8 text-primary" />}
+            title="Verify in Discord first"
+            description="You need to verify in the Discord server to get the KOTH Player role before you can apply to the clan."
+          >
+            <a
+              href={DISCORD_INVITE}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-2 bg-[#5865F2] hover:bg-[#4752C4] text-white font-display font-bold px-8 py-3 rounded-lg transition hover:scale-105"
+            >
+              <ExternalLink className="w-4 h-4" /> Go to Discord
+            </a>
+          </GateCard>
+        )}
+
+        {/* STEP 3: Accepted (has KOTH + private role) - SHOW FIRST */}
+        {user.in_guild && user.is_koth && user.is_member && (
           <GateCard
             icon={<Download className="w-8 h-8 text-accent" />}
             title="Welcome to 420 Clan!"
@@ -86,29 +122,11 @@ const Dashboard = () => {
           </GateCard>
         )}
 
-        {/* All other screens (only if NOT accepted) */}
-        {!user.is_member && (
+        {/* STEP 4: Has KOTH but NOT yet accepted - show application flow */}
+        {user.in_guild && user.is_koth && !user.is_member && (
           <>
-            {/* Not in guild */}
-            {!user.in_guild && (
-              <GateCard
-                icon={<ExternalLink className="w-8 h-8 text-primary" />}
-                title="Join our Discord first"
-                description="You need to be in the 420 Clan Discord server before you can apply."
-              >
-                <a
-                  href={DISCORD_INVITE}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="inline-flex items-center gap-2 bg-[#5865F2] hover:bg-[#4752C4] text-white font-display font-bold px-8 py-3 rounded-lg transition hover:scale-105"
-                >
-                  <ExternalLink className="w-4 h-4" /> Join Discord
-                </a>
-              </GateCard>
-            )}
-
-            {/* In guild, no application yet */}
-            {user.in_guild && !user.application && (
+            {/* No application yet */}
+            {!user.application && (
               <GateCard
                 icon={<FileText className="w-8 h-8 text-primary" />}
                 title="Apply for the 420 Clan"
@@ -124,7 +142,7 @@ const Dashboard = () => {
             )}
 
             {/* Application pending */}
-            {user.in_guild && user.application?.status === "pending" && (
+            {user.application?.status === "pending" && (
               <GateCard
                 icon={<Loader2 className="w-8 h-8 text-yellow-400 animate-spin" />}
                 title="Application Pending"
@@ -138,7 +156,7 @@ const Dashboard = () => {
             )}
 
             {/* Application rejected */}
-            {user.in_guild && user.application?.status === "rejected" && (
+            {user.application?.status === "rejected" && (
               <GateCard
                 icon={<FileText className="w-8 h-8 text-destructive" />}
                 title="Application Rejected"

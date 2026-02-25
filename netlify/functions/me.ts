@@ -20,6 +20,7 @@ const handler: Handler = async (event) => {
   const roles: string[] = member?.roles ?? [];
   const isStaff = roles.includes(process.env.DISCORD_STAFF_ROLE_ID!);
   const isMember = roles.includes(process.env.DISCORD_MEMBER_ROLE_ID!);
+  const isKoth = roles.includes(process.env.DISCORD_KOTH_PLAYER_ROLE_ID!);
 
   console.log("DEBUG /me:", {
     discord_id: session.discord_id,
@@ -28,8 +29,10 @@ const handler: Handler = async (event) => {
     roles,
     staff_role_id: process.env.DISCORD_STAFF_ROLE_ID,
     member_role_id: process.env.DISCORD_MEMBER_ROLE_ID,
+    koth_role_id: process.env.DISCORD_KOTH_PLAYER_ROLE_ID,
     isStaff,
     isMember,
+    isKoth,
   });
 
   // Get latest application status
@@ -49,6 +52,7 @@ const handler: Handler = async (event) => {
       in_guild: inGuild,
       is_staff: isStaff,
       is_member: isMember,
+      is_koth: isKoth,
       application: app ?? null,
     },
   });

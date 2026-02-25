@@ -14,6 +14,7 @@ export interface User {
   in_guild: boolean;
   is_staff: boolean;
   is_member: boolean;
+  is_koth: boolean;
   application: Application | null;
 }
 
