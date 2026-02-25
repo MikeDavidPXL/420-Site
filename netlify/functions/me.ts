@@ -35,7 +35,7 @@ const handler: Handler = async (event) => {
   // Get latest application status
   const { data: app } = await supabase
     .from("applications")
-    .select("id, status, created_at")
+    .select("id, status, created_at, reviewer_note")
     .eq("discord_id", session.discord_id)
     .order("created_at", { ascending: false })
     .limit(1)

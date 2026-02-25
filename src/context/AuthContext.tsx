@@ -4,6 +4,7 @@ export interface Application {
   id: string;
   status: "pending" | "accepted" | "rejected";
   created_at: string;
+  reviewer_note?: string;
 }
 
 export interface User {

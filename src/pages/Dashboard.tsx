@@ -125,6 +125,16 @@ const Dashboard = () => {
             title="Application Rejected"
             description="Unfortunately your application was not accepted. You may re-apply."
           >
+            {user.application.reviewer_note && (
+              <div className="mb-6 p-4 bg-destructive/10 border border-destructive/30 rounded-lg">
+                <p className="text-sm text-muted-foreground font-display font-bold mb-2">
+                  Feedback from Staff:
+                </p>
+                <p className="text-sm text-foreground">
+                  {user.application.reviewer_note}
+                </p>
+              </div>
+            )}
             <Link
               to="/apply"
               className="inline-flex items-center gap-2 bg-primary hover:bg-primary/90 text-primary-foreground font-display font-bold px-8 py-3 rounded-lg transition hover:scale-105"
