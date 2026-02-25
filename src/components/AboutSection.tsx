@@ -103,12 +103,12 @@ const AboutSection = () => {
                   {group.role}
                 </h4>
 
-                {/* Staff Cards Grid */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+                {/* Staff Cards */}
+                <div className="flex flex-wrap justify-center gap-6">
                   {group.members.map((member, memberIndex) => (
                     <motion.div
                       key={member.name}
-                      className="bg-card border border-border rounded-lg p-6 text-center hover:border-primary/50 transition-all duration-300 neon-border-blue-subtle"
+                      className="bg-card border border-border rounded-lg p-6 text-center hover:border-primary/50 transition-all duration-300 neon-border-blue-subtle w-full sm:w-[280px]"
                       initial={{ opacity: 0, y: 20 }}
                       animate={isInView ? { opacity: 1, y: 0 } : {}}
                       transition={{

@@ -97,7 +97,7 @@ const POLL_INTERVAL = 10_000; // 10s
 const TexturePackPage = () => {
   const { user, loading } = useAuth();
   const [changelog, setChangelog] = useState<ChangelogEntry[]>([]);
-  const [latestVersion, setLatestVersion] = useState("1.2.0");
+  const [latestVersion, setLatestVersion] = useState("1.2.1");
   const [fileSize, setFileSize] = useState("601.6 MB");
   const [pendingCount, setPendingCount] = useState(0);
 
@@ -264,14 +264,11 @@ const TexturePackPage = () => {
                     <h4 className="font-display text-xl font-bold uppercase mb-6 text-center text-secondary">
                       {group.role}
                     </h4>
-                    <div className={`grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 ${
-                      group.members.length === 1 ? "max-w-sm mx-auto" :
-                      group.members.length === 2 ? "max-w-2xl mx-auto" : ""
-                    }`}>
+                    <div className="flex flex-wrap justify-center gap-6">
                       {group.members.map((member, memberIndex) => (
                         <motion.div
                           key={member.name}
-                          className="bg-card border border-border rounded-lg p-6 text-center hover:border-primary/50 transition-all duration-300"
+                          className="bg-card border border-border rounded-lg p-6 text-center hover:border-primary/50 transition-all duration-300 w-full sm:w-[280px]"
                           initial={{ opacity: 0, y: 20 }}
                           animate={isInView ? { opacity: 1, y: 0 } : {}}
                           transition={{

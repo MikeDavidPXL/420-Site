@@ -1,5 +1,19 @@
 [
   {
+    "version": "1.2.1",
+    "date": "25-02-2026",
+    "title": "Clan Homepage & Staff Team Update",
+    "changes": [
+      "Added Staff Team section on homepage with dynamic card layout grouped by roles",
+      "Clan-focused About Us rewrite reflecting CosmicV KOTH identity",
+      "Login page title updated to \"CosmicV KOTH Clan\"",
+      "\"Updates & Showcase\" renamed to \"Showcase\" with updated subtitle",
+      "Shield admin tools menu for staff navigation",
+      "Clan List structural improvements",
+      "Improved layout consistency and mobile responsiveness"
+    ]
+  },
+  {
     "version": "1.1.3",
     "date": "24-02-2026",
     "fileSize": "601.6 MB",

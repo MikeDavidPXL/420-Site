@@ -160,6 +160,26 @@ Status: Active Development
 
 ## v1.2.1
 
+### Added
+- Staff Team section on homepage
+- Dynamic staff card layout grouped by roles
+- Clan-focused About Us rewrite
+- Shield admin tools menu
+- Clan List structural improvements
+
+### Changed
+- Login page title updated to "CosmicV KOTH Clan"
+- "Updates & Showcase" renamed to "Showcase"
+- Showcase subtitle wording updated
+- Homepage content restructured to reflect clan identity
+
+### Improved
+- Layout consistency
+- Mobile responsiveness improvements
+- Navigation clarity for staff tools
+
+## v1.2.0
+
 ### Application System
 - Discord roles as single source of truth (`effective_status` based on Discord roles only)
 - Auto-revoke: applications marked "revoked" when user loses Private role in Discord
