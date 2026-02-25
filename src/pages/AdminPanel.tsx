@@ -73,6 +73,12 @@ const AdminPanel = () => {
   const [internalNote, setInternalNote] = useState("");
   const [noteSaving, setNoteSaving] = useState<string | null>(null);
   const [noteSaved, setNoteSaved] = useState<string | null>(null);
+  const [reviewFeedback, setReviewFeedback] = useState<
+    Record<
+      string,
+      { kind: "success" | "error"; message: string; canRetryCreate?: boolean }
+    >
+  >({});
 
   // ── Fetch (silent = no loading spinner, used by polling) ──
   const fetchApps = useCallback(async (silent = false) => {
@@ -121,11 +127,99 @@ const AdminPanel = () => {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ application_id: appId, action, note }),
       });
+      const data = await res.json().catch(() => ({}));
+
+      if (!res.ok) {
+        setReviewFeedback((prev) => ({
+          ...prev,
+          [appId]: {
+            kind: "error",
+            message:
+              data?.clan_member_error ||
+              data?.error ||
+              "Request failed",
+            canRetryCreate: action === "accept",
+          },
+        }));
+        return;
+      }
+
+      if (action === "accept") {
+        if (data?.clan_member_upsert_ok) {
+          setReviewFeedback((prev) => ({
+            ...prev,
+            [appId]: {
+              kind: "success",
+              message: "Clan member created",
+            },
+          }));
+        } else {
+          setReviewFeedback((prev) => ({
+            ...prev,
+            [appId]: {
+              kind: "error",
+              message:
+                data?.clan_member_error ||
+                "Clan member upsert failed",
+              canRetryCreate: true,
+            },
+          }));
+        }
+      } else {
+        setReviewFeedback((prev) => ({
+          ...prev,
+          [appId]: {
+            kind: "success",
+            message: "Application rejected",
+          },
+        }));
+      }
+
       if (res.ok) {
         setNote("");
-        setExpanded(null);
         await fetchApps();
       }
+    } finally {
+      setActionLoading(null);
+    }
+  };
+
+  const retryCreateClanMember = async (appId: string) => {
+    setActionLoading(appId);
+    try {
+      const res = await fetch("/.netlify/functions/admin-review", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          application_id: appId,
+          action: "retry_create_clan_member",
+        }),
+      });
+      const data = await res.json().catch(() => ({}));
+
+      if (!res.ok || !data?.clan_member_upsert_ok) {
+        setReviewFeedback((prev) => ({
+          ...prev,
+          [appId]: {
+            kind: "error",
+            message:
+              data?.clan_member_error ||
+              data?.error ||
+              "Retry create clan member failed",
+            canRetryCreate: true,
+          },
+        }));
+        return;
+      }
+
+      setReviewFeedback((prev) => ({
+        ...prev,
+        [appId]: {
+          kind: "success",
+          message: "Clan member created",
+        },
+      }));
+      await fetchApps();
     } finally {
       setActionLoading(null);
     }
@@ -376,6 +470,28 @@ const AdminPanel = () => {
                         label="Archive reason"
                         value={app.archive_reason}
                       />
+                    )}
+
+                    {reviewFeedback[app.id] && (
+                      <div
+                        className={`text-sm px-3 py-2 rounded-md border ${
+                          reviewFeedback[app.id].kind === "success"
+                            ? "bg-green-500/10 border-green-500/30 text-green-400"
+                            : "bg-red-500/10 border-red-500/30 text-red-400"
+                        }`}
+                      >
+                        {reviewFeedback[app.id].message}
+                        {reviewFeedback[app.id].kind === "error" &&
+                          reviewFeedback[app.id].canRetryCreate && (
+                          <button
+                            onClick={() => retryCreateClanMember(app.id)}
+                            disabled={actionLoading === app.id}
+                            className="ml-3 underline underline-offset-2 hover:text-red-300 disabled:opacity-60"
+                          >
+                            Retry create clan member
+                          </button>
+                          )}
+                      </div>
                     )}
 
                     {/* ── Internal Notes ────────────── */}

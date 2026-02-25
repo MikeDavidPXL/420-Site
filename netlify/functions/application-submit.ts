@@ -12,6 +12,9 @@ const handler: Handler = async (event) => {
   if (!session) {
     return json({ error: "Unauthorized" }, 401);
   }
+  if (!session.discord_id) {
+    return json({ error: "Missing discord_id in session" }, 401);
+  }
 
   // Server-side role check: only KOTH players who are NOT already private/staff
   const member = await discordFetch(
@@ -122,7 +125,13 @@ const handler: Handler = async (event) => {
 
   if (error) {
     console.error("Insert error:", error);
-    return json({ error: "Failed to submit application" }, 500);
+    return json(
+      {
+        error: "Failed to submit application",
+        details: error.message,
+      },
+      500
+    );
   }
 
   // If this was an override reapply, log it

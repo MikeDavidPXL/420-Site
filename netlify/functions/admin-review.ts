@@ -11,6 +11,71 @@ import {
   removeRole,
 } from "./shared";
 
+type ApplicationRow = {
+  id: string;
+  discord_id: string;
+  discord_name: string;
+  uid: string | null;
+  ingame_name?: string | null;
+};
+
+async function upsertClanMemberFromApplication(
+  app: ApplicationRow,
+  acceptedAtIso: string
+): Promise<{ ok: boolean; clanMemberId: string | null; error: string | null }> {
+  if (!app.discord_id) {
+    return { ok: false, clanMemberId: null, error: "application.discord_id is missing" };
+  }
+
+  const joinDate = acceptedAtIso.split("T")[0];
+
+  const { data: existing, error: existingErr } = await supabase
+    .from("clan_list_members")
+    .select("id, join_date")
+    .eq("discord_id", app.discord_id)
+    .maybeSingle();
+
+  if (existingErr) {
+    return {
+      ok: false,
+      clanMemberId: null,
+      error: `lookup failed: ${existingErr.message}`,
+    };
+  }
+
+  const payload = {
+    discord_id: app.discord_id,
+    discord_name: app.discord_name,
+    ign: app.ingame_name || app.discord_name,
+    uid: app.uid || null,
+    join_date: existing?.join_date || joinDate,
+    status: "active",
+    has_420_tag: false,
+    rank_current: "Private",
+    frozen_days: 0,
+    counting_since: acceptedAtIso,
+    source: "application",
+    needs_resolution: false,
+    updated_at: acceptedAtIso,
+  };
+
+  const { data: upserted, error: upsertErr } = await supabase
+    .from("clan_list_members")
+    .upsert(payload, { onConflict: "discord_id" })
+    .select("id")
+    .single();
+
+  if (upsertErr) {
+    return {
+      ok: false,
+      clanMemberId: null,
+      error: upsertErr.message,
+    };
+  }
+
+  return { ok: true, clanMemberId: upserted?.id ?? null, error: null };
+}
+
 const handler: Handler = async (event) => {
   if (event.httpMethod !== "POST") {
     return json({ error: "Method not allowed" }, 405);
@@ -39,8 +104,8 @@ const handler: Handler = async (event) => {
   }
 
   const { application_id, action, note } = body;
-  if (!application_id || !["accept", "reject"].includes(action)) {
-    return json({ error: "application_id and action (accept|reject) required" }, 400);
+  if (!application_id || !["accept", "reject", "retry_create_clan_member"].includes(action)) {
+    return json({ error: "application_id and action (accept|reject|retry_create_clan_member) required" }, 400);
   }
 
   // Get application
@@ -54,9 +119,58 @@ const handler: Handler = async (event) => {
     return json({ error: "Application not found" }, 404);
   }
 
+  if (!app.discord_id) {
+    return json({ error: "Application has no discord_id; cannot continue" }, 400);
+  }
+
+  // ── RETRY CREATE CLAN MEMBER (accepted applications) ─────
+  if (action === "retry_create_clan_member") {
+    const acceptedAt = app.accepted_at || new Date().toISOString();
+    console.log("[admin-review] retry_create_clan_member start", {
+      application_id,
+      discord_id: app.discord_id,
+    });
+    const upsert = await upsertClanMemberFromApplication(app, acceptedAt);
+
+    await supabase.from("audit_log").insert({
+      action: "clan_member_retry_from_accept",
+      target_id: application_id,
+      actor_id: session.discord_id,
+      details: {
+        application_id,
+        discord_id: app.discord_id,
+        upserted: upsert.ok,
+        clan_member_id: upsert.clanMemberId,
+        error: upsert.error,
+      },
+    });
+
+    if (!upsert.ok) {
+      return json(
+        {
+          error: "Retry create clan member failed",
+          clan_member_upsert_ok: false,
+          clan_member_error: upsert.error,
+        },
+        500
+      );
+    }
+
+    return json({
+      ok: true,
+      status: app.status,
+      clan_member_upsert_ok: true,
+      clan_member_id: upsert.clanMemberId,
+    });
+  }
+
   // ── ACCEPT ────────────────────────────────────────────────
   if (action === "accept") {
     const now = new Date().toISOString();
+    console.log("[admin-review] accept start", {
+      application_id,
+      discord_id: app.discord_id,
+    });
 
     // 1. Update application status + timestamps
     const { error: updateErr } = await supabase
@@ -75,6 +189,44 @@ const handler: Handler = async (event) => {
       return json({ error: "Failed to update application" }, 500);
     }
 
+    const upsert = await upsertClanMemberFromApplication(app, now);
+    console.log("[admin-review] accept upsert result", {
+      application_id,
+      discord_id: app.discord_id,
+      ok: upsert.ok,
+      clan_member_id: upsert.clanMemberId,
+      error: upsert.error,
+    });
+
+    if (!upsert.ok) {
+      console.error("Clan member upsert failed:", {
+        application_id,
+        discord_id: app.discord_id,
+        error: upsert.error,
+      });
+
+      await supabase.from("audit_log").insert({
+        action: "clan_member_upsert_failed_on_accept",
+        target_id: application_id,
+        actor_id: session.discord_id,
+        details: {
+          application_id,
+          discord_id: app.discord_id,
+          error: upsert.error,
+        },
+      });
+
+      return json(
+        {
+          error: "Application accepted but clan member upsert failed",
+          status: "accepted",
+          clan_member_upsert_ok: false,
+          clan_member_error: upsert.error,
+        },
+        500
+      );
+    }
+
     // 2. Assign Private role + remove KOTH role
     const roleAssigned = await assignRole(
       app.discord_id,
@@ -85,78 +237,19 @@ const handler: Handler = async (event) => {
       process.env.DISCORD_KOTH_PLAYER_ROLE_ID!
     );
 
-    // 3. Upsert clan_list_members — join on discord_id
-    let clanMemberId: string | null = null;
-    let createdClanMember = false;
-
-    const joinDate = now.split("T")[0]; // YYYY-MM-DD
-
-    // Check if member already exists
-    const { data: existing } = await supabase
-      .from("clan_list_members")
-      .select("id, ign, uid, join_date")
-      .eq("discord_id", app.discord_id)
-      .maybeSingle();
-
-    if (existing) {
-      // Update only non-empty fields; keep existing join_date unless empty
-      const updates: Record<string, unknown> = {
-        discord_name: app.discord_name,
-        status: "active",
-        counting_since: now,
-        updated_at: now,
-      };
-      // Only overwrite ign/uid if application has values and existing are empty
-      if (app.uid && !existing.uid) updates.uid = app.uid;
-      if (!existing.join_date) updates.join_date = joinDate;
-
-      await supabase
-        .from("clan_list_members")
-        .update(updates)
-        .eq("id", existing.id);
-
-      clanMemberId = existing.id;
-    } else {
-      // Insert new clan member
-      const { data: inserted, error: insertErr } = await supabase
-        .from("clan_list_members")
-        .insert({
-          discord_id: app.discord_id,
-          discord_name: app.discord_name,
-          ign: app.discord_name, // staff can update later
-          uid: app.uid || null,
-          join_date: joinDate,
-          status: "active",
-          has_420_tag: false,
-          rank_current: "Private",
-          frozen_days: 0,
-          counting_since: now,
-          source: "application",
-          needs_resolution: false,
-        })
-        .select("id")
-        .single();
-
-      if (insertErr) {
-        console.error("Clan member insert error:", insertErr);
-        // Don't fail the whole accept — the role swap already happened
-      } else {
-        clanMemberId = inserted.id;
-        createdClanMember = true;
-      }
-    }
-
-    // 4. Audit log
+    // 3. Audit log
     await supabase.from("audit_log").insert({
-      action: "application_accepted",
+      action: "clan_member_created_from_accept",
       target_id: application_id,
       actor_id: session.discord_id,
       details: {
+        application_id,
+        discord_id: app.discord_id,
+        upserted: true,
         note: note || null,
         role_assigned: roleAssigned,
         role_removed: roleRemoved,
-        created_clan_member: createdClanMember,
-        clan_member_id: clanMemberId,
+        clan_member_id: upsert.clanMemberId,
         discord_role_result: { assigned: roleAssigned, removed: roleRemoved },
       },
     });
@@ -166,8 +259,9 @@ const handler: Handler = async (event) => {
       status: "accepted",
       role_assigned: roleAssigned,
       role_removed: roleRemoved,
-      clan_member_created: createdClanMember,
-      clan_member_id: clanMemberId,
+      clan_member_upsert_ok: true,
+      clan_member_error: null,
+      clan_member_id: upsert.clanMemberId,
     });
   }
 

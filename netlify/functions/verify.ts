@@ -85,6 +85,11 @@ const handler: Handler = async (event) => {
     true
   );
 
+  console.log("[verify] member lookup", {
+    session_discord_id: session.discord_id,
+    discord_member_found: !!member,
+  });
+
   if (!member) {
     return json(
       { error: "You must be in the Discord server first.", code: "NOT_IN_GUILD" },
@@ -93,6 +98,10 @@ const handler: Handler = async (event) => {
   }
 
   const roles: string[] = member.roles ?? [];
+  console.log("[verify] roles before", {
+    session_discord_id: session.discord_id,
+    roles_before: roles,
+  });
   const isStaff = roles.includes(process.env.DISCORD_STAFF_ROLE_ID!);
   const isPrivate = roles.includes(process.env.DISCORD_MEMBER_ROLE_ID!);
   const isKoth = roles.includes(process.env.DISCORD_KOTH_PLAYER_ROLE_ID!);
@@ -139,6 +148,17 @@ const handler: Handler = async (event) => {
     process.env.DISCORD_KOTH_PLAYER_ROLE_ID!
   );
 
+  const memberAfter = await discordFetch(
+    `/guilds/${process.env.DISCORD_GUILD_ID}/members/${session.discord_id}`,
+    process.env.DISCORD_BOT_TOKEN!,
+    true
+  );
+  const rolesAfter: string[] = memberAfter?.roles ?? [];
+  console.log("[verify] roles after", {
+    session_discord_id: session.discord_id,
+    roles_after: rolesAfter,
+  });
+
   if (!addedKoth) {
     await supabase.from("audit_log").insert({
       action: "site_verify_role_fail",
@@ -166,6 +186,10 @@ const handler: Handler = async (event) => {
       removed_unverified: removedUnverified,
       added_koth: addedKoth,
       ip: clientIp,
+      session_discord_id: session.discord_id,
+      discord_member_found: true,
+      roles_before: roles,
+      roles_after: rolesAfter,
     },
   });
 
