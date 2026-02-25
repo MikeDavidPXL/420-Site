@@ -11,6 +11,21 @@ import {
   normalizeLookup,
 } from "./shared";
 
+function lookupVariants(input: string): string[] {
+  const raw = (input ?? "").trim();
+  if (!raw) return [];
+
+  const noDiscriminator = raw.replace(/#\d{2,6}$/g, "").trim();
+  const noBrackets = noDiscriminator.replace(/\[[^\]]*\]/g, " ").trim();
+  const noSpecial = noBrackets.replace(/[^\p{L}\p{N}\s]/gu, " ").trim();
+
+  const variants = [raw, noDiscriminator, noBrackets, noSpecial]
+    .map((v) => normalizeLookup(v))
+    .filter(Boolean);
+
+  return Array.from(new Set(variants));
+}
+
 const handler: Handler = async (event) => {
   if (event.httpMethod !== "POST") {
     return json({ error: "Method not allowed" }, 405);
@@ -32,7 +47,7 @@ const handler: Handler = async (event) => {
   // 1. Fetch all unresolved members
   const { data: unresolved, error: fetchErr } = await supabase
     .from("clan_list_members")
-    .select("id, discord_name, discord_id")
+    .select("id, discord_name, discord_id, uid")
     .or("discord_id.is.null,needs_resolution.eq.true");
 
   if (fetchErr) {
@@ -61,22 +76,66 @@ const handler: Handler = async (event) => {
       continue;
     }
 
-    const candidates = searchGuildMemberCandidates(guildMembers, row.discord_name, 25);
-    const normalizedQuery = normalizeLookup(row.discord_name);
-
-    // Try exact match first
-    const exact = candidates.filter((c) =>
-      normalizeLookup(c.username) === normalizedQuery ||
-      normalizeLookup(c.display_name) === normalizedQuery ||
-      normalizeLookup(c.nick ?? "") === normalizedQuery
-    );
-
     let matchedId: string | null = null;
 
-    if (exact.length === 1) {
-      matchedId = exact[0].discord_id;
-    } else if (exact.length === 0 && candidates.length === 1) {
-      matchedId = candidates[0].discord_id;
+    // 2a. Deterministic resolve by UID from applications table
+    if (row.uid) {
+      const { data: appMatches } = await supabase
+        .from("applications")
+        .select("discord_id")
+        .eq("uid", row.uid)
+        .in("status", ["accepted", "pending"])
+        .not("discord_id", "is", null)
+        .order("accepted_at", { ascending: false })
+        .order("created_at", { ascending: false })
+        .limit(5);
+
+      const uniqueIds = Array.from(
+        new Set((appMatches ?? []).map((a) => a.discord_id).filter(Boolean))
+      ) as string[];
+
+      if (uniqueIds.length === 1) {
+        matchedId = uniqueIds[0];
+      } else if (uniqueIds.length > 1) {
+        ambiguous++;
+        details.push({
+          discord_name: row.discord_name,
+          result: `ambiguous_uid (${uniqueIds.length} application ids)`,
+        });
+        continue;
+      }
+    }
+
+    // 2b. Fallback by name matching against guild members
+    let candidates = [] as ReturnType<typeof searchGuildMemberCandidates>;
+    let exact = [] as ReturnType<typeof searchGuildMemberCandidates>;
+
+    if (!matchedId) {
+      const variants = lookupVariants(row.discord_name);
+      const candidateMap = new Map<string, (typeof candidates)[number]>();
+
+      for (const variant of variants) {
+        const found = searchGuildMemberCandidates(guildMembers, variant, 25);
+        for (const c of found) {
+          candidateMap.set(c.discord_id, c);
+        }
+      }
+
+      candidates = Array.from(candidateMap.values());
+      const normalizedVariants = new Set(lookupVariants(row.discord_name));
+
+      exact = candidates.filter((c) => {
+        const names = [c.username, c.display_name, c.nick ?? ""]
+          .map((n) => normalizeLookup(n))
+          .filter(Boolean);
+        return names.some((n) => normalizedVariants.has(n));
+      });
+
+      if (exact.length === 1) {
+        matchedId = exact[0].discord_id;
+      } else if (exact.length === 0 && candidates.length === 1) {
+        matchedId = candidates[0].discord_id;
+      }
     }
 
     if (matchedId) {
