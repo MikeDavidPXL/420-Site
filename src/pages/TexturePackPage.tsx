@@ -205,13 +205,13 @@ const TexturePackPage = () => {
               className="inline-flex items-center gap-3 bg-primary text-primary-foreground font-display font-bold text-lg px-8 py-4 rounded-lg neon-box-blue hover:scale-105 transition-transform duration-200 uppercase tracking-wider"
             >
               <Download className="w-5 h-5" />
-              Download Now
+              Download modpack
             </a>
             <Link
               to="/ban-report"
-              className="inline-flex items-center gap-3 bg-red-600 hover:bg-red-700 text-white font-display font-bold text-lg px-8 py-4 rounded-lg hover:scale-105 transition-all duration-200 uppercase tracking-wider animate-pulse-subtle"
+              className="inline-flex items-center gap-2 bg-red-600 hover:bg-red-700 text-white font-display font-bold text-base px-6 py-3 rounded-lg hover:scale-105 transition-all duration-200 uppercase tracking-wider animate-pulse-subtle"
             >
-              <AlertTriangle className="w-5 h-5" />
+              <AlertTriangle className="w-4 h-4" />
               I Have Been Banned
             </Link>
           </motion.div>

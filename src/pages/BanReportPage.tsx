@@ -2,7 +2,7 @@
 import { useState } from "react";
 import { motion } from "framer-motion";
 import { useAuth } from "@/context/AuthContext";
-import { Navigate, Link } from "react-router-dom";
+import { Link } from "react-router-dom";
 import {
   AlertTriangle,
   ArrowLeft,
@@ -34,7 +34,6 @@ const BanReportPage = () => {
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
-  const [appealDate, setAppealDate] = useState<string | null>(null);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -76,13 +75,6 @@ const BanReportPage = () => {
       }
 
       setSuccess(true);
-      setAppealDate(
-        new Date(data.appeal_available_at).toLocaleDateString("en-US", {
-          year: "numeric",
-          month: "long",
-          day: "numeric",
-        })
-      );
     } catch {
       setError("Network error. Please try again.");
     } finally {
@@ -164,8 +156,8 @@ const BanReportPage = () => {
               </span>
             </Link>
             <div className="flex items-center gap-2">
-              <CheckCircle className="w-5 h-5 text-green-500" />
-              <span className="font-display text-lg font-bold text-green-500 hidden sm:block">
+              <CheckCircle className="w-5 h-5 text-foreground" />
+              <span className="font-display text-lg font-bold text-foreground hidden sm:block">
                 Report Received
               </span>
             </div>
@@ -180,24 +172,19 @@ const BanReportPage = () => {
             animate={{ scale: 1 }}
             transition={{ type: "spring", duration: 0.5 }}
           >
-            <CheckCircle className="w-20 h-20 text-green-500 mx-auto mb-6" />
+            <CheckCircle className="w-20 h-20 text-foreground mx-auto mb-6" />
           </motion.div>
           <h1 className="font-display text-2xl font-bold text-foreground mb-4">
             Ban Report Received
           </h1>
-          <p className="text-muted-foreground mb-4">
-            Your ban report has been logged and sent to the clan owners.
+          <p className="text-muted-foreground mb-2">
+            Your ban report has been received.
           </p>
-          <div className="bg-card border border-border rounded-lg p-6 mb-8">
-            <p className="text-sm text-muted-foreground mb-2">
-              You may appeal after:
-            </p>
-            <p className="text-xl font-display font-bold text-foreground">
-              {appealDate}
-            </p>
-          </div>
+          <p className="text-muted-foreground mb-8">
+            Our team has been notified.
+          </p>
           <Link
-            to="/pack"
+            to="/"
             className="inline-flex items-center gap-2 bg-muted hover:bg-muted/80 text-foreground font-display font-bold px-6 py-3 rounded-lg transition"
           >
             <ArrowLeft className="w-4 h-4" />
@@ -272,8 +259,7 @@ const BanReportPage = () => {
           {/* Warning box */}
           <div className="bg-red-500/10 border border-red-500/30 rounded-lg p-4 mb-6">
             <p className="text-sm text-red-400">
-              <strong>Important:</strong> This is NOT an appeal form. You must
-              wait 6 months before you can submit an appeal. This form is only
+              <strong>Important:</strong> This is NOT an appeal form. This form is only
               to notify the clan that you have been banned.
             </p>
           </div>
@@ -358,8 +344,7 @@ const BanReportPage = () => {
                   className="accent-red-500 w-5 h-5 mt-0.5"
                 />
                 <span className="text-sm text-foreground">
-                  I understand this does not guarantee an appeal and I must wait{" "}
-                  <strong>6 months</strong> before applying for one.
+                  I understand this does not guarantee an appeal.
                 </span>
               </label>
             </div>
