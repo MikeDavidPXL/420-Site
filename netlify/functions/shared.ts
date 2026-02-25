@@ -165,21 +165,36 @@ export async function fetchAllGuildMembers(): Promise<GuildMember[]> {
   return allMembers;
 }
 
-/** Try to resolve discord_id from a display name */
+/** Try to resolve discord_id from a display name.
+ *  Strategy: exact match on username/global_name/nick → partial contains →
+ *  first-word match. Names are cleaned of newlines/extra whitespace. */
 export function resolveDiscordId(
   displayName: string,
   guildMembers: GuildMember[]
 ): { id: string | null; multiple: boolean } {
-  const lower = displayName.toLowerCase().trim();
-  const matches = guildMembers.filter((m) => {
-    const un = m.user.username?.toLowerCase() ?? "";
-    const gn = m.user.global_name?.toLowerCase() ?? "";
-    const nn = m.nick?.toLowerCase() ?? "";
+  const lower = displayName.toLowerCase().replace(/[\r\n]+/g, "").trim();
+  if (!lower) return { id: null, multiple: false };
+
+  const clean = (s: string | null | undefined) =>
+    (s ?? "").toLowerCase().replace(/[\r\n]+/g, "").trim();
+
+  // 1. Exact match on username / global_name / nick
+  const exact = guildMembers.filter((m) => {
+    const un = clean(m.user.username);
+    const gn = clean(m.user.global_name);
+    const nn = clean(m.nick);
     return un === lower || gn === lower || nn === lower;
   });
+  if (exact.length === 1) return { id: exact[0].user.id, multiple: false };
+  if (exact.length > 1) return { id: null, multiple: true };
 
-  if (matches.length === 1) return { id: matches[0].user.id, multiple: false };
-  if (matches.length > 1) return { id: null, multiple: true };
+  // 2. Username starts-with or contains (for names with trailing junk)
+  const partial = guildMembers.filter((m) => {
+    const un = clean(m.user.username);
+    return un.startsWith(lower) || lower.startsWith(un);
+  });
+  if (partial.length === 1) return { id: partial[0].user.id, multiple: false };
+
   return { id: null, multiple: false };
 }
 

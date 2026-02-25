@@ -88,6 +88,20 @@ const handler: Handler = async (event) => {
       currentIdx < RANK_LADDER.length - 1;
     const nxt = nextRankFor(m.rank_current, days);
 
+    // Days until next rank
+    let days_until_next_rank: string | number;
+    if (currentIdx >= RANK_LADDER.length - 1) {
+      days_until_next_rank = "Max rank";
+    } else if (m.status !== "active" || !m.has_420_tag) {
+      days_until_next_rank = "Paused";
+    } else if (nxt && days >= nxt.daysRequired) {
+      days_until_next_rank = "Ready";
+    } else if (nxt) {
+      days_until_next_rank = Math.max(0, nxt.daysRequired - days);
+    } else {
+      days_until_next_rank = "Max rank";
+    }
+
     return {
       ...m,
       time_in_clan_days: days,
@@ -96,6 +110,7 @@ const handler: Handler = async (event) => {
       promote_reason: needsPromo && nxt
         ? `${days} days in clan, meets ${earned.name} threshold (${earned.daysRequired} days)`
         : null,
+      days_until_next_rank,
     };
   });
 

@@ -42,6 +42,7 @@ interface ClanMember {
   needs_resolution: boolean;
   source: string;
   time_in_clan_days: number;
+  days_until_next_rank: string | number;
   created_at: string;
   updated_at: string;
 }
@@ -712,6 +713,7 @@ const ClanListPage = () => {
                       "Status",
                       "Rank",
                       "Next Rank",
+                      "Until Next",
                       "Info",
                     ].map((h) => (
                       <th
@@ -721,6 +723,7 @@ const ClanListPage = () => {
                             ? "text-center"
                             : "text-left"
                         }`}
+                        style={h === "Until Next" ? { textAlign: "center" } : undefined}
                       >
                         {h}
                       </th>
@@ -813,6 +816,19 @@ const ClanListPage = () => {
                           </span>
                         )}
                       </td>
+                      <td className="px-3 py-2.5 text-center whitespace-nowrap">
+                        {typeof m.days_until_next_rank === "number" ? (
+                          <span className="font-mono text-xs text-muted-foreground">
+                            {m.days_until_next_rank}d
+                          </span>
+                        ) : m.days_until_next_rank === "Ready" ? (
+                          <span className="text-xs font-bold text-green-400">Ready</span>
+                        ) : m.days_until_next_rank === "Paused" ? (
+                          <span className="text-xs text-yellow-400">Paused</span>
+                        ) : (
+                          <span className="text-xs text-muted-foreground/50">{m.days_until_next_rank}</span>
+                        )}
+                      </td>
                       <td className="px-3 py-2.5 text-center">
                         {savingField === m.id ? (
                           <Loader2 className="w-3 h-3 animate-spin text-secondary mx-auto" />
@@ -870,6 +886,16 @@ const ClanListPage = () => {
                         <Zap className="w-3 h-3 inline mr-0.5" />→ {m.rank_next}
                       </span>
                     )}
+                    <span className={`font-mono ${
+                      m.days_until_next_rank === "Ready" ? "text-green-400 font-bold" :
+                      m.days_until_next_rank === "Paused" ? "text-yellow-400" :
+                      m.days_until_next_rank === "Max rank" ? "text-muted-foreground/50" :
+                      "text-muted-foreground"
+                    }`}>
+                      {typeof m.days_until_next_rank === "number"
+                        ? `${m.days_until_next_rank}d to next`
+                        : m.days_until_next_rank}
+                    </span>
                   </div>
                   <div className="flex items-center gap-4">
                     <label className="flex items-center gap-1.5 text-xs cursor-pointer select-none">

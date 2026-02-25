@@ -157,7 +157,12 @@ function normalizeRow(
   const out: Record<string, string | undefined> = {};
   for (const [key, val] of Object.entries(raw)) {
     const field = headerMapping.get(key);
-    if (field) out[field] = val == null ? undefined : String(val).trim();
+    if (field) {
+      // Strip newlines/carriage returns that Google Sheets CSV sometimes embeds
+      out[field] = val == null
+        ? undefined
+        : String(val).replace(/[\r\n]+/g, " ").trim();
+    }
   }
   return out;
 }
