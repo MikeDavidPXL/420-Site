@@ -5,7 +5,7 @@ import { parse } from "cookie";
 
 // ── Supabase ────────────────────────────────────────────────
 export const supabase = createClient(
-  process.env.SUPABASE_URL!,
+  process.env.SUPABASE_DATABASE_URL!,
   process.env.SUPABASE_SERVICE_ROLE_KEY!
 );
 
