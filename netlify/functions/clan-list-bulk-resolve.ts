@@ -87,6 +87,20 @@ const handler: Handler = async (event) => {
 
   // 3. Fetch all guild members once
   const guildMembers = await fetchAllGuildMembers();
+  if (!guildMembers.length) {
+    return json(
+      {
+        error:
+          "Discord member listing is unavailable. Check bot permissions/intents (Server Members Intent) and DISCORD_GUILD_ID.",
+        code: "GUILD_MEMBER_LIST_UNAVAILABLE",
+        debug: {
+          uid_map_size: uidToDiscordIds.size,
+          guild_member_count: guildMembers.length,
+        },
+      },
+      503
+    );
+  }
   const nowIso = new Date().toISOString();
 
   let resolved = 0;
