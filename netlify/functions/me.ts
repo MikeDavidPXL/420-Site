@@ -1,5 +1,5 @@
 // /.netlify/functions/me
-// Returns the current session user + application status + admin flag
+// Returns the current session user + role claims + application status
 import type { Handler } from "@netlify/functions";
 import { getSessionFromCookie, discordFetch, supabase, json } from "./shared";
 
@@ -18,22 +18,11 @@ const handler: Handler = async (event) => {
 
   const inGuild = !!member;
   const roles: string[] = member?.roles ?? [];
-  const isStaff = roles.includes(process.env.DISCORD_STAFF_ROLE_ID!);
-  const isMember = roles.includes(process.env.DISCORD_MEMBER_ROLE_ID!);
-  const isKoth = roles.includes(process.env.DISCORD_KOTH_PLAYER_ROLE_ID!);
 
-  console.log("DEBUG /me:", {
-    discord_id: session.discord_id,
-    guild_id: process.env.DISCORD_GUILD_ID,
-    member: member ? "found" : "null",
-    roles,
-    staff_role_id: process.env.DISCORD_STAFF_ROLE_ID,
-    member_role_id: process.env.DISCORD_MEMBER_ROLE_ID,
-    koth_role_id: process.env.DISCORD_KOTH_PLAYER_ROLE_ID,
-    isStaff,
-    isMember,
-    isKoth,
-  });
+  // Role priority: staff > private > koth > nothing
+  const isStaff = roles.includes(process.env.DISCORD_STAFF_ROLE_ID!);
+  const isPrivate = roles.includes(process.env.DISCORD_MEMBER_ROLE_ID!);
+  const isKoth = roles.includes(process.env.DISCORD_KOTH_PLAYER_ROLE_ID!);
 
   // Get latest application status
   const { data: app } = await supabase
@@ -51,7 +40,7 @@ const handler: Handler = async (event) => {
       avatar: session.avatar,
       in_guild: inGuild,
       is_staff: isStaff,
-      is_member: isMember,
+      is_private: isPrivate,
       is_koth: isKoth,
       application: app ?? null,
     },

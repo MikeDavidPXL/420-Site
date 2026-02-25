@@ -2,13 +2,12 @@ import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { AuthProvider } from "@/context/AuthContext";
 import LandingPage from "./pages/LandingPage";
 import Dashboard from "./pages/Dashboard";
 import ApplicationForm from "./pages/ApplicationForm";
 import TexturePackPage from "./pages/TexturePackPage";
-import AdminPanel from "./pages/AdminPanel";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -25,7 +24,8 @@ const App = () => (
             <Route path="/dashboard" element={<Dashboard />} />
             <Route path="/apply" element={<ApplicationForm />} />
             <Route path="/pack" element={<TexturePackPage />} />
-            <Route path="/admin" element={<AdminPanel />} />
+            {/* Admin panel is now embedded in /pack for staff */}
+            <Route path="/admin" element={<Navigate to="/pack#admin" replace />} />
             <Route path="*" element={<NotFound />} />
           </Routes>
         </BrowserRouter>

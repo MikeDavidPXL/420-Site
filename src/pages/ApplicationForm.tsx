@@ -1,12 +1,12 @@
 import { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, Navigate } from "react-router-dom";
 import { motion } from "framer-motion";
 import { useAuth } from "@/context/AuthContext";
 import { ArrowLeft, Send, Loader2 } from "lucide-react";
 import { Link } from "react-router-dom";
 
 const ApplicationForm = () => {
-  const { user, refresh } = useAuth();
+  const { user, loading: authLoading, refresh } = useAuth();
   const navigate = useNavigate();
 
   const [form, setForm] = useState({
@@ -24,6 +24,19 @@ const ApplicationForm = () => {
   });
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // Guard: staff / private → pack page, no session → login
+  if (!authLoading && !user) return <Navigate to="/" replace />;
+  if (!authLoading && user && (user.is_staff || user.is_private)) return <Navigate to="/pack" replace />;
+  if (!authLoading && user && !user.is_koth) return <Navigate to="/dashboard" replace />;
+
+  if (authLoading) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <Loader2 className="w-8 h-8 text-primary animate-spin" />
+      </div>
+    );
+  }
 
   const handle = (field: string, value: string | boolean) =>
     setForm((prev) => ({ ...prev, [field]: value }));
@@ -55,7 +68,7 @@ const ApplicationForm = () => {
     }
   };
 
-  if (!user) return null;
+  if (!user) return null; // should never reach here due to guards above
 
   return (
     <div className="min-h-screen bg-background relative overflow-hidden">

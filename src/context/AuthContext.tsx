@@ -13,7 +13,7 @@ export interface User {
   avatar: string | null;
   in_guild: boolean;
   is_staff: boolean;
-  is_member: boolean;
+  is_private: boolean;
   is_koth: boolean;
   application: Application | null;
 }

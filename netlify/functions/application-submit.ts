@@ -1,7 +1,7 @@
 // /.netlify/functions/application-submit
-// POST: submit a new application
+// POST: submit a new application (KOTH player only, not staff/private)
 import type { Handler } from "@netlify/functions";
-import { getSessionFromCookie, supabase, json } from "./shared";
+import { getSessionFromCookie, discordFetch, supabase, json } from "./shared";
 
 const handler: Handler = async (event) => {
   if (event.httpMethod !== "POST") {
@@ -11,6 +11,27 @@ const handler: Handler = async (event) => {
   const session = getSessionFromCookie(event.headers.cookie);
   if (!session) {
     return json({ error: "Unauthorized" }, 401);
+  }
+
+  // Server-side role check: only KOTH players who are NOT already private/staff
+  const member = await discordFetch(
+    `/guilds/${process.env.DISCORD_GUILD_ID}/members/${session.discord_id}`,
+    process.env.DISCORD_BOT_TOKEN!,
+    true
+  );
+  if (!member) {
+    return json({ error: "You must be in the Discord server" }, 403);
+  }
+  const roles: string[] = member.roles ?? [];
+  const isStaff = roles.includes(process.env.DISCORD_STAFF_ROLE_ID!);
+  const isPrivate = roles.includes(process.env.DISCORD_MEMBER_ROLE_ID!);
+  const isKoth = roles.includes(process.env.DISCORD_KOTH_PLAYER_ROLE_ID!);
+
+  if (isStaff || isPrivate) {
+    return json({ error: "You already have clan access" }, 403);
+  }
+  if (!isKoth) {
+    return json({ error: "You must verify in Discord first to get KOTH Player role" }, 403);
   }
 
   // Check for existing pending/accepted application
