@@ -196,10 +196,23 @@ const handler: Handler = async (event) => {
       },
     });
 
-    // Reattach computed days
+    // Reattach computed days + days_until_next_rank
+    let days_until_next_rank: string | number;
+    if (currentIdx >= RANK_LADDER.length - 1) {
+      days_until_next_rank = "Max rank";
+    } else if (!nowActive) {
+      days_until_next_rank = "Paused";
+    } else if (nxt && days >= nxt.daysRequired) {
+      days_until_next_rank = "Ready";
+    } else if (nxt) {
+      days_until_next_rank = Math.max(0, nxt.daysRequired - days);
+    } else {
+      days_until_next_rank = "Max rank";
+    }
+
     return json({
       ok: true,
-      member: { ...result, time_in_clan_days: days },
+      member: { ...result, time_in_clan_days: days, days_until_next_rank },
     });
   }
 
