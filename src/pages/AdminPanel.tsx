@@ -20,6 +20,8 @@ import {
   StickyNote,
   Send,
   Users,
+  Trash2,
+  X,
 } from "lucide-react";
 import clanLogo from "@/assets/clan-logo.png";
 
@@ -80,6 +82,15 @@ const AdminPanel = () => {
       { kind: "success" | "error"; message: string; canRetryCreate?: boolean }
     >
   >({});
+
+  // Archive All state
+  const [archiveAllModalOpen, setArchiveAllModalOpen] = useState(false);
+  const [archiveAllReason, setArchiveAllReason] = useState("cleanup");
+  const [archiveAllLoading, setArchiveAllLoading] = useState(false);
+  const [archiveAllResult, setArchiveAllResult] = useState<{
+    kind: "success" | "error";
+    message: string;
+  } | null>(null);
 
   // ── Fetch (silent = no loading spinner, used by polling) ──
   const fetchApps = useCallback(async (silent = false) => {
@@ -273,6 +284,48 @@ const AdminPanel = () => {
     }
   };
 
+  // Archive All handler
+  const archiveAll = async () => {
+    setArchiveAllLoading(true);
+    setArchiveAllResult(null);
+    try {
+      const res = await fetch("/.netlify/functions/admin-applications-archive-all", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ reason: archiveAllReason || "cleanup" }),
+      });
+      const data = await res.json();
+
+      if (!res.ok) {
+        setArchiveAllResult({
+          kind: "error",
+          message: data?.error || "Failed to archive applications",
+        });
+        return;
+      }
+
+      setArchiveAllResult({
+        kind: "success",
+        message: `Successfully archived ${data.archived_count} application${data.archived_count !== 1 ? "s" : ""}`,
+      });
+
+      // Refresh list after short delay to show message
+      setTimeout(async () => {
+        await fetchApps();
+        setArchiveAllModalOpen(false);
+        setArchiveAllResult(null);
+        setArchiveAllReason("cleanup");
+      }, 1500);
+    } catch {
+      setArchiveAllResult({
+        kind: "error",
+        message: "Network error",
+      });
+    } finally {
+      setArchiveAllLoading(false);
+    }
+  };
+
   // Guard: staff only
   if (!authLoading && (!user || !user.is_staff)) {
     return <Navigate to="/pack" replace />;
@@ -376,8 +429,8 @@ const AdminPanel = () => {
           ))}
         </div>
 
-        {/* Show archived toggle + result count */}
-        <div className="flex items-center justify-between mb-6">
+        {/* Show archived toggle + Archive All button + result count */}
+        <div className="flex items-center justify-between mb-6 flex-wrap gap-3">
           <label className="flex items-center gap-2 text-sm text-muted-foreground cursor-pointer select-none">
             <input
               type="checkbox"
@@ -388,10 +441,114 @@ const AdminPanel = () => {
             <Archive className="w-4 h-4" />
             Show archived
           </label>
+
+          {/* Archive All button — only visible on "all" tab */}
+          {filter === "all" && user?.is_staff && (
+            <button
+              onClick={() => setArchiveAllModalOpen(true)}
+              className="flex items-center gap-2 px-3 py-1.5 text-sm font-display font-bold border border-purple-500/50 text-purple-400 hover:bg-purple-500/10 hover:border-purple-500 rounded-lg transition"
+            >
+              <Trash2 className="w-4 h-4" />
+              Archive All
+            </button>
+          )}
+
           <span className="text-sm text-muted-foreground">
             {apps.length} result{apps.length !== 1 ? "s" : ""}
           </span>
         </div>
+
+        {/* Archive All Confirmation Modal */}
+        {archiveAllModalOpen && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm">
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              className="bg-card border border-border rounded-xl shadow-2xl w-full max-w-md mx-4 p-6"
+            >
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="font-display text-lg font-bold text-foreground flex items-center gap-2">
+                  <Trash2 className="w-5 h-5 text-purple-400" />
+                  Archive All
+                </h3>
+                <button
+                  onClick={() => {
+                    setArchiveAllModalOpen(false);
+                    setArchiveAllResult(null);
+                  }}
+                  className="text-muted-foreground hover:text-foreground transition"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+
+              <div className="space-y-4">
+                <div className="bg-purple-500/10 border border-purple-500/30 rounded-lg p-3">
+                  <p className="text-sm text-purple-300">
+                    <strong>This will archive:</strong>
+                  </p>
+                  <ul className="text-sm text-purple-300/80 mt-1 list-disc list-inside">
+                    <li>All <span className="text-green-400">accepted</span> applications</li>
+                    <li>All <span className="text-red-400">rejected</span> applications</li>
+                  </ul>
+                  <p className="text-sm text-yellow-400 mt-2">
+                    ⚠️ Pending applications will NOT be archived.
+                  </p>
+                </div>
+
+                <div>
+                  <label className="block text-sm text-muted-foreground mb-1">
+                    Archive reason (optional)
+                  </label>
+                  <input
+                    type="text"
+                    value={archiveAllReason}
+                    onChange={(e) => setArchiveAllReason(e.target.value)}
+                    placeholder="cleanup"
+                    className="w-full bg-muted border border-border rounded-lg px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground/50 focus:outline-none focus:ring-2 focus:ring-purple-500/50"
+                  />
+                </div>
+
+                {archiveAllResult && (
+                  <div
+                    className={`text-sm px-3 py-2 rounded-md border ${
+                      archiveAllResult.kind === "success"
+                        ? "bg-green-500/10 border-green-500/30 text-green-400"
+                        : "bg-red-500/10 border-red-500/30 text-red-400"
+                    }`}
+                  >
+                    {archiveAllResult.message}
+                  </div>
+                )}
+
+                <div className="flex gap-3 pt-2">
+                  <button
+                    onClick={() => {
+                      setArchiveAllModalOpen(false);
+                      setArchiveAllResult(null);
+                    }}
+                    disabled={archiveAllLoading}
+                    className="flex-1 px-4 py-2 bg-muted hover:bg-muted/80 text-foreground font-display font-bold rounded-lg transition disabled:opacity-50"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    onClick={archiveAll}
+                    disabled={archiveAllLoading}
+                    className="flex-1 flex items-center justify-center gap-2 px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white font-display font-bold rounded-lg transition disabled:opacity-50"
+                  >
+                    {archiveAllLoading ? (
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                    ) : (
+                      <Trash2 className="w-4 h-4" />
+                    )}
+                    Archive
+                  </button>
+                </div>
+              </div>
+            </motion.div>
+          </div>
+        )}
 
         {loading && (
           <div className="text-center py-12">
