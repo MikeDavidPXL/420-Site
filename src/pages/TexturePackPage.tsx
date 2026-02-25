@@ -9,6 +9,7 @@ import {
   Hash,
   ArrowLeft,
   Play,
+  Shield,
 } from "lucide-react";
 
 interface ChangelogEntry {
@@ -49,6 +50,41 @@ const TexturePackPage = () => {
   return (
     <div className="min-h-screen bg-background relative overflow-hidden">
       <div className="absolute inset-0 smoke-overlay pointer-events-none" />
+
+      {/* Top bar */}
+      <nav className="relative z-10 border-b border-border bg-card/60 backdrop-blur">
+        <div className="container mx-auto px-4 py-3 flex items-center justify-between">
+          <span className="font-display text-lg font-bold neon-text-blue text-primary">
+            420 Clan
+          </span>
+          <div className="flex items-center gap-4">
+            {user?.is_staff && (
+              <Link
+                to="/admin"
+                className="flex items-center gap-1.5 text-sm text-secondary hover:text-secondary/80 font-display"
+              >
+                <Shield className="w-4 h-4" /> Admin Panel
+              </Link>
+            )}
+            <div className="flex items-center gap-2">
+              {user?.avatar && (
+                <img
+                  src={user.avatar}
+                  alt=""
+                  className="w-8 h-8 rounded-full border border-border"
+                />
+              )}
+              <span className="text-sm text-foreground">{user?.username}</span>
+            </div>
+            <a
+              href="/.netlify/functions/logout"
+              className="text-xs text-muted-foreground hover:text-destructive transition"
+            >
+              Logout
+            </a>
+          </div>
+        </div>
+      </nav>
 
       <div className="relative z-10 container mx-auto px-4 py-12 max-w-4xl">
         <Link
