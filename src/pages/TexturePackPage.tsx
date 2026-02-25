@@ -21,6 +21,7 @@ import {
   Users,
   Menu,
   X,
+  AlertTriangle,
 } from "lucide-react";
 import clanLogo from "@/assets/clan-logo.png";
 import heroBanner from "@/assets/420Gif.png";
@@ -193,16 +194,27 @@ const TexturePackPage = () => {
             Upgrade your FiveM experience with our exclusive custom textures.
             Weapons, vehicles, and more - all in one pack.
           </motion.p>
-          <motion.a
-            href="#download"
-            className="inline-flex items-center gap-3 bg-primary text-primary-foreground font-display font-bold text-lg px-8 py-4 rounded-lg neon-box-blue hover:scale-105 transition-transform duration-200 uppercase tracking-wider"
+          <motion.div
+            className="flex flex-col sm:flex-row items-center justify-center gap-4"
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.7, duration: 0.6 }}
           >
-            <Download className="w-5 h-5" />
-            Download Now
-          </motion.a>
+            <a
+              href="#download"
+              className="inline-flex items-center gap-3 bg-primary text-primary-foreground font-display font-bold text-lg px-8 py-4 rounded-lg neon-box-blue hover:scale-105 transition-transform duration-200 uppercase tracking-wider"
+            >
+              <Download className="w-5 h-5" />
+              Download Now
+            </a>
+            <Link
+              to="/ban-report"
+              className="inline-flex items-center gap-3 bg-red-600 hover:bg-red-700 text-white font-display font-bold text-lg px-8 py-4 rounded-lg hover:scale-105 transition-all duration-200 uppercase tracking-wider animate-pulse-subtle"
+            >
+              <AlertTriangle className="w-5 h-5" />
+              I Have Been Banned
+            </Link>
+          </motion.div>
         </div>
       </section>
 
