@@ -17,12 +17,21 @@ import {
   LogOut,
   Archive,
   ArchiveRestore,
+  StickyNote,
+  Send,
 } from "lucide-react";
 import clanLogo from "@/assets/clan-logo.png";
 
 const POLL_INTERVAL = 10_000; // 10 seconds
 
 // ── Types ─────────────────────────────────────────────────
+interface AdminNote {
+  id: string;
+  note: string;
+  created_at: string;
+  created_by: string;
+}
+
 interface AdminApp {
   id: string;
   discord_id: string;
@@ -44,6 +53,7 @@ interface AdminApp {
   archived_at: string | null;
   archived_by: string | null;
   archive_reason: string | null;
+  application_notes: AdminNote[];
 }
 
 type Filter = "all" | "pending" | "accepted" | "rejected";
@@ -60,6 +70,9 @@ const AdminPanel = () => {
   const [expanded, setExpanded] = useState<string | null>(null);
   const [actionLoading, setActionLoading] = useState<string | null>(null);
   const [note, setNote] = useState("");
+  const [internalNote, setInternalNote] = useState("");
+  const [noteSaving, setNoteSaving] = useState<string | null>(null);
+  const [noteSaved, setNoteSaved] = useState<string | null>(null);
 
   // ── Fetch (silent = no loading spinner, used by polling) ──
   const fetchApps = useCallback(async (silent = false) => {
@@ -115,6 +128,33 @@ const AdminPanel = () => {
       }
     } finally {
       setActionLoading(null);
+    }
+  };
+
+  const saveInternalNote = async (appId: string) => {
+    if (!internalNote.trim()) return;
+    setNoteSaving(appId);
+    setNoteSaved(null);
+    try {
+      const res = await fetch("/.netlify/functions/admin-application-note", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ application_id: appId, note: internalNote }),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        // Update notes in-place without full refetch
+        setApps((prev) =>
+          prev.map((a) =>
+            a.id === appId ? { ...a, application_notes: data.notes } : a
+          )
+        );
+        setInternalNote("");
+        setNoteSaved(appId);
+        setTimeout(() => setNoteSaved(null), 2000);
+      }
+    } finally {
+      setNoteSaving(null);
     }
   };
 
@@ -337,6 +377,64 @@ const AdminPanel = () => {
                         value={app.archive_reason}
                       />
                     )}
+
+                    {/* ── Internal Notes ────────────── */}
+                    <div className="pt-3 border-t border-border">
+                      <div className="flex items-center gap-2 mb-2">
+                        <StickyNote className="w-4 h-4 text-yellow-400" />
+                        <span className="text-xs font-display text-yellow-400 uppercase tracking-wider">
+                          Internal Notes ({app.application_notes?.length || 0})
+                        </span>
+                      </div>
+
+                      {/* Existing notes */}
+                      {app.application_notes?.length > 0 && (
+                        <div className="space-y-2 mb-3 max-h-48 overflow-y-auto">
+                          {app.application_notes.map((n) => (
+                            <div
+                              key={n.id}
+                              className="bg-yellow-500/5 border border-yellow-500/20 rounded-lg px-3 py-2"
+                            >
+                              <p className="text-sm text-foreground whitespace-pre-wrap">
+                                {n.note}
+                              </p>
+                              <p className="text-xs text-muted-foreground mt-1">
+                                {n.created_by} &middot;{" "}
+                                {new Date(n.created_at).toLocaleString()}
+                              </p>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+
+                      {/* Add note */}
+                      <div className="flex gap-2">
+                        <textarea
+                          value={expanded === app.id ? internalNote : ""}
+                          onChange={(e) => setInternalNote(e.target.value)}
+                          placeholder="Add internal note..."
+                          maxLength={1000}
+                          rows={2}
+                          className="flex-1 bg-muted border border-border rounded-lg px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground/50 focus:outline-none focus:ring-2 focus:ring-yellow-500/50 resize-none"
+                        />
+                        <button
+                          onClick={() => saveInternalNote(app.id)}
+                          disabled={
+                            noteSaving === app.id || !internalNote.trim()
+                          }
+                          className="self-end px-3 py-2 bg-yellow-600 hover:bg-yellow-700 text-white rounded-lg transition disabled:opacity-50 flex items-center gap-1 text-sm font-display font-bold"
+                        >
+                          {noteSaving === app.id ? (
+                            <Loader2 className="w-4 h-4 animate-spin" />
+                          ) : (
+                            <Send className="w-4 h-4" />
+                          )}
+                        </button>
+                      </div>
+                      {noteSaved === app.id && (
+                        <p className="text-xs text-green-400 mt-1">Saved!</p>
+                      )}
+                    </div>
 
                     {/* ── Accept / Reject (pending only) ─── */}
                     {app.status === "pending" && !isArchived && (

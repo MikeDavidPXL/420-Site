@@ -25,7 +25,7 @@ const handler: Handler = async (event) => {
 
   let query = supabase
     .from("applications")
-    .select("*")
+    .select("*, application_notes(id, note, created_at, created_by)")
     .order("created_at", { ascending: false });
 
   if (status) {
@@ -43,7 +43,16 @@ const handler: Handler = async (event) => {
     return json({ error: "Failed to fetch applications" }, 500);
   }
 
-  return json({ applications: data });
+  // Sort nested notes newest-first
+  const apps = (data ?? []).map((app: any) => ({
+    ...app,
+    application_notes: (app.application_notes ?? []).sort(
+      (a: any, b: any) =>
+        new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+    ),
+  }));
+
+  return json({ applications: apps });
 };
 
 export { handler };
