@@ -146,7 +146,7 @@ const TexturePackPage = () => {
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.3, duration: 0.6 }}
           >
-            420 Clan Texture Pack
+            420 Clan
           </motion.h1>
           <motion.p
             className="text-lg sm:text-xl max-w-2xl mx-auto mb-8 font-body"
@@ -154,6 +154,7 @@ const TexturePackPage = () => {
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.5, duration: 0.6 }}
           >
+            Come and hangout in the VC or on Cosmic.
             Upgrade your FiveM experience with our exclusive custom textures.
             Clothing, weapons, vehicles, and more — all in one pack.
           </motion.p>
