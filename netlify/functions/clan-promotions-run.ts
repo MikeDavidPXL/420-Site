@@ -8,13 +8,11 @@ import {
   supabase,
   json,
   assignRole,
-  removeRole,
   postChannelMessage,
   computeTimeDays,
   earnedRank,
   rankIndex,
   RANK_LADDER,
-  RANK_ROLE_IDS,
 } from "./shared";
 
 const ANNOUNCEMENT_CHANNEL = "1376309040686170254";
@@ -152,18 +150,7 @@ const handler: Handler = async (event) => {
         }
       }
 
-      // Remove lower rank roles (keep only the new one)
-      if (roleSuccess) {
-        for (const rank of RANK_LADDER) {
-          if (
-            rank.roleId &&
-            rank.roleId !== p.to_role_id &&
-            rankIndex(rank.name) < rankIndex(p.to_rank)
-          ) {
-            await removeRole(p.discord_id, rank.roleId);
-          }
-        }
-      }
+      // Ranks are additive: we only ADD the new role, never remove lower ones
 
       if (roleSuccess) {
         // Update DB
@@ -266,7 +253,7 @@ const handler: Handler = async (event) => {
       "If you feel like you are due for promotion and didn't get one open a ticket ---> #ticket-logs",
       "",
       "Have a Wonderful Day :sunny:",
-      "<@&1374050492052803604>  :420clan:",
+      `<@&${process.env.DISCORD_MEMBER_ROLE_ID}>  :420clan:`,
     ].join("\n");
 
     announcementPosted = await postChannelMessage(
