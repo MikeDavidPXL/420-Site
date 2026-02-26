@@ -99,6 +99,8 @@ const getNavItems = (isStaff: boolean) => {
 //  MAIN COMPONENT
 // ══════════════════════════════════════════════════════════
 const POLL_INTERVAL = 10_000; // 10s
+const NAV_THRESHOLD = 100;
+const CONTENT_THRESHOLD = 150;
 
 const TexturePackPage = () => {
   const { user, loading } = useAuth();
@@ -106,6 +108,25 @@ const TexturePackPage = () => {
   const [latestVersion, setLatestVersion] = useState("1.2.1");
   const [fileSize, setFileSize] = useState("601.6 MB");
   const [pendingCount, setPendingCount] = useState(0);
+  const [scrollY, setScrollY] = useState(0);
+  const initialHeight = useRef(
+    typeof window !== "undefined" ? window.innerHeight : 800
+  );
+
+  useEffect(() => {
+    let ticking = false;
+    const handleScroll = () => {
+      if (!ticking) {
+        requestAnimationFrame(() => {
+          setScrollY(window.scrollY);
+          ticking = false;
+        });
+        ticking = true;
+      }
+    };
+    window.addEventListener("scroll", handleScroll, { passive: true });
+    return () => window.removeEventListener("scroll", handleScroll);
+  }, []);
 
   useEffect(() => {
     fetch("/changelog.json")
@@ -153,12 +174,18 @@ const TexturePackPage = () => {
 
   const navItems = getNavItems(user!.is_staff);
 
+  // Hero fades out over 70% of initial viewport height
+  const heroOpacity = Math.max(0, 1 - scrollY / (initialHeight.current * 0.7));
+  const showNav = scrollY > NAV_THRESHOLD;
+  const showContent = scrollY > CONTENT_THRESHOLD;
+
   return (
     <div className="min-h-screen bg-background">
       {/* ── Navbar ────────────────────────────────────────── */}
-      <PackNavbar navItems={navItems} user={user!} pendingCount={pendingCount} />
+      <PackNavbar navItems={navItems} user={user!} pendingCount={pendingCount} visible={showNav} />
 
       {/* ── Hero Section ─────────────────────────────────── */}
+      <div style={{ opacity: heroOpacity }} className="will-change-[opacity]">
       <section id="hero" className="relative min-h-screen flex items-center justify-center overflow-hidden">
         <div className="absolute inset-0">
           <img src={heroBanner} alt="420 Clan Banner" className="w-full h-full object-cover" />
@@ -217,6 +244,16 @@ const TexturePackPage = () => {
           </motion.div>
         </div>
       </section>
+      </div>
+
+      {/* ── Content sections - revealed after scroll threshold ── */}
+      <div
+        className={`transition-all duration-700 ease-out ${
+          showContent
+            ? "opacity-100 translate-y-0"
+            : "opacity-0 translate-y-8"
+        }`}
+      >
 
       {/* ── About Section ────────────────────────────────── */}
       <AnimatedSection id="about" className="py-24 relative smoke-overlay">
@@ -500,6 +537,8 @@ const TexturePackPage = () => {
         )}
       </AnimatedSection>
 
+      </div>{/* end content reveal wrapper */}
+
       {/* ── Footer ───────────────────────────────────────── */}
       <footer className="border-t border-border py-8">
         <div className="container mx-auto px-4">
@@ -535,10 +574,12 @@ function PackNavbar({
   navItems,
   user,
   pendingCount = 0,
+  visible = true,
 }: {
   navItems: { label: string; href: string; route?: boolean }[];
   user: { avatar: string | null; username: string; is_staff: boolean };
   pendingCount?: number;
+  visible?: boolean;
 }) {
   const [scrolled, setScrolled] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
@@ -547,7 +588,7 @@ function PackNavbar({
 
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 50);
-    window.addEventListener("scroll", onScroll);
+    window.addEventListener("scroll", onScroll, { passive: true });
     return () => window.removeEventListener("scroll", onScroll);
   }, []);
 
@@ -564,11 +605,12 @@ function PackNavbar({
   }, [shieldOpen]);
 
   return (
-    <motion.nav
-      initial={{ y: -100 }}
-      animate={{ y: 0 }}
-      transition={{ duration: 0.5 }}
-      className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 ${
+    <nav
+      className={`fixed top-0 left-0 right-0 z-50 transition-all duration-500 ease-out ${
+        visible
+          ? "opacity-100 translate-y-0"
+          : "opacity-0 -translate-y-4 pointer-events-none"
+      } ${
         scrolled
           ? "bg-background/90 backdrop-blur-md border-b border-border shadow-lg"
           : "bg-transparent"
@@ -712,7 +754,7 @@ function PackNavbar({
           </div>
         </div>
       )}
-    </motion.nav>
+    </nav>
   );
 }
 

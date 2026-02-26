@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { motion } from "framer-motion";
 import clanLogo from "@/assets/clan-logo.png";
 
 const navItems = [
@@ -10,26 +11,21 @@ const navItems = [
   { label: "Download", href: "#download" },
 ];
 
-interface NavbarProps {
-  visible?: boolean;
-}
-
-const Navbar = ({ visible = true }: NavbarProps) => {
+const Navbar = () => {
   const [scrolled, setScrolled] = useState(false);
 
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 50);
-    window.addEventListener("scroll", onScroll, { passive: true });
+    window.addEventListener("scroll", onScroll);
     return () => window.removeEventListener("scroll", onScroll);
   }, []);
 
   return (
-    <nav
-      className={`fixed top-0 left-0 right-0 z-50 transition-all duration-500 ease-out ${
-        visible
-          ? "opacity-100 translate-y-0"
-          : "opacity-0 -translate-y-4 pointer-events-none"
-      } ${
+    <motion.nav
+      initial={{ y: -100 }}
+      animate={{ y: 0 }}
+      transition={{ duration: 0.5 }}
+      className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 ${
         scrolled
           ? "bg-background/90 backdrop-blur-md border-b border-border shadow-lg"
           : "bg-transparent"
@@ -60,7 +56,7 @@ const Navbar = ({ visible = true }: NavbarProps) => {
           Download
         </a>
       </div>
-    </nav>
+    </motion.nav>
   );
 };
 
