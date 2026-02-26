@@ -1,7 +1,7 @@
 // Pack page — restored old look with full section layout
 // Staff sees admin panel link in navbar; private/staff both see this page
 import { useEffect, useState, useRef, useCallback } from "react";
-import { motion, useInView } from "framer-motion";
+import { AnimatePresence, motion, useInView } from "framer-motion";
 import { useAuth } from "@/context/AuthContext";
 import { Navigate, Link } from "react-router-dom";
 import {
@@ -22,6 +22,7 @@ import {
   Menu,
   X,
   AlertTriangle,
+  ChevronDown,
 } from "lucide-react";
 import clanLogo from "@/assets/clan-logo.png";
 import heroBanner from "@/assets/420Gif.png";
@@ -90,6 +91,7 @@ const TexturePackPage = () => {
   const [pendingCount, setPendingCount] = useState(0);
   const [staffMembers, setStaffMembers] = useState<StaffMember[]>([]);
   const [scrollY, setScrollY] = useState(0);
+  const [changelogExpanded, setChangelogExpanded] = useState(false);
   const initialHeight = useRef(
     typeof window !== "undefined" ? window.innerHeight : 800
   );
@@ -176,6 +178,8 @@ const TexturePackPage = () => {
     role,
     members: staffMembers.filter((m) => m.staff_role === role),
   }));
+  const latestChangelog = changelog[0];
+  const olderChangelog = changelog.slice(1);
 
   // Hero image fades out over 70% of initial viewport height
   const heroOpacity = Math.max(0, 1 - scrollY / (initialHeight.current * 0.7));
@@ -445,31 +449,107 @@ const TexturePackPage = () => {
             >
               Changelog
             </motion.h2>
-            <div className="max-w-3xl mx-auto space-y-6">
-              {changelog.map((entry, i) => (
-                <motion.div
-                  key={entry.version}
-                  className="bg-card border border-border rounded-lg p-6 hover:neon-border-purple transition-all duration-300"
-                  initial={{ opacity: 0, x: -30 }}
-                  animate={isInView ? { opacity: 1, x: 0 } : {}}
-                  transition={{ delay: 0.1 * i, duration: 0.5 }}
-                >
-                  <div className="flex items-center gap-3 mb-3">
-                    <Tag className="w-5 h-5 text-secondary" />
-                    <span className="font-display text-sm font-bold text-secondary">v{entry.version}</span>
-                    <span className="text-muted-foreground text-xs">{entry.date}</span>
-                  </div>
-                  <h3 className="font-display text-lg font-bold mb-3 text-foreground">{entry.title}</h3>
-                  <ul className="space-y-1.5">
-                    {entry.changes.map((change, j) => (
-                      <li key={j} className="text-muted-foreground text-sm flex items-start gap-2">
-                        <span className="text-primary flex-shrink-0 leading-[1.25rem]">•</span>
-                        {change}
-                      </li>
-                    ))}
-                  </ul>
-                </motion.div>
-              ))}
+            <div className="max-w-3xl mx-auto space-y-4">
+              {latestChangelog && (
+                <div className="relative pt-5">
+                  {olderChangelog.slice(0, 2).map((entry, i) => (
+                    <motion.div
+                      key={`stack-${entry.version}`}
+                      className="absolute left-0 right-0 rounded-lg border border-border bg-card/80"
+                      style={{
+                        top: `${(i + 1) * 8}px`,
+                        transform: `scale(${1 - (i + 1) * 0.015})`,
+                        zIndex: 1 - i,
+                      }}
+                      initial={{ opacity: 0 }}
+                      animate={isInView ? { opacity: changelogExpanded ? 0 : 1 } : {}}
+                      transition={{ delay: 0.08 * i, duration: 0.3 }}
+                      aria-hidden="true"
+                    >
+                      <div className="h-20" />
+                    </motion.div>
+                  ))}
+
+                  <motion.button
+                    type="button"
+                    onClick={() => setChangelogExpanded((prev) => !prev)}
+                    className="relative z-10 w-full text-left bg-card border border-border rounded-lg p-6 hover:neon-border-purple transition-all duration-300"
+                    initial={{ opacity: 0, x: -30 }}
+                    animate={isInView ? { opacity: 1, x: 0 } : {}}
+                    transition={{ duration: 0.5 }}
+                  >
+                    <div className="flex items-start justify-between gap-4">
+                      <div className="min-w-0">
+                        <div className="flex items-center gap-3 mb-3">
+                          <Tag className="w-5 h-5 text-secondary" />
+                          <span className="font-display text-sm font-bold text-secondary">v{latestChangelog.version}</span>
+                          <span className="text-muted-foreground text-xs">{latestChangelog.date}</span>
+                        </div>
+                        <h3 className="font-display text-lg font-bold mb-3 text-foreground">{latestChangelog.title}</h3>
+                        <ul className="space-y-1.5">
+                          {latestChangelog.changes.map((change, i) => (
+                            <li key={i} className="text-muted-foreground text-sm flex items-start gap-2">
+                              <span className="text-primary flex-shrink-0 leading-[1.25rem]">•</span>
+                              {change}
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+
+                      {olderChangelog.length > 0 && (
+                        <div className="shrink-0 flex items-center gap-1 text-xs text-secondary font-display font-bold mt-0.5">
+                          <span>{changelogExpanded ? "Hide older" : `${olderChangelog.length} older`}</span>
+                          <ChevronDown
+                            className={`w-4 h-4 transition-transform duration-300 ${
+                              changelogExpanded ? "rotate-180" : ""
+                            }`}
+                          />
+                        </div>
+                      )}
+                    </div>
+                  </motion.button>
+                </div>
+              )}
+
+              <AnimatePresence initial={false}>
+                {changelogExpanded && olderChangelog.length > 0 && (
+                  <motion.div
+                    key="older-changelog"
+                    initial={{ opacity: 0, height: 0, y: -8 }}
+                    animate={{ opacity: 1, height: "auto", y: 0 }}
+                    exit={{ opacity: 0, height: 0, y: -8 }}
+                    transition={{ duration: 0.35, ease: "easeOut" }}
+                    className="overflow-hidden"
+                  >
+                    <div className="space-y-4 pt-2">
+                      {olderChangelog.map((entry, i) => (
+                        <motion.div
+                          key={entry.version}
+                          className="bg-card border border-border rounded-lg p-6 hover:neon-border-purple transition-all duration-300"
+                          initial={{ opacity: 0, y: 10 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          transition={{ delay: 0.05 * i, duration: 0.25 }}
+                        >
+                          <div className="flex items-center gap-3 mb-3">
+                            <Tag className="w-5 h-5 text-secondary" />
+                            <span className="font-display text-sm font-bold text-secondary">v{entry.version}</span>
+                            <span className="text-muted-foreground text-xs">{entry.date}</span>
+                          </div>
+                          <h3 className="font-display text-lg font-bold mb-3 text-foreground">{entry.title}</h3>
+                          <ul className="space-y-1.5">
+                            {entry.changes.map((change, j) => (
+                              <li key={j} className="text-muted-foreground text-sm flex items-start gap-2">
+                                <span className="text-primary flex-shrink-0 leading-[1.25rem]">•</span>
+                                {change}
+                              </li>
+                            ))}
+                          </ul>
+                        </motion.div>
+                      ))}
+                    </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
             </div>
           </div>
         )}
