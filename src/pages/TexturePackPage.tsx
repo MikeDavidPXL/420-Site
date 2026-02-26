@@ -48,46 +48,14 @@ const features = [
 
 // ── Staff members configuration ─────────────────────────────
 type StaffMember = {
-  name: string;
-  role: string;
-  discord_id: string | null;
+  discord_id: string;
+  display_name: string;
+  staff_role: "Owner" | "Web Developer" | "Admin";
+  staff_role_rank: number;
   avatar_hash: string | null;
+  avatar_url: string;
 };
-
-const staffMembersDefault: StaffMember[] = [
-  {
-    name: "Jam",
-    role: "Owner",
-    discord_id: null,
-    avatar_hash: null,
-  },
-  {
-    name: "Zuo",
-    role: "Owner",
-    discord_id: null,
-    avatar_hash: null,
-  },
-  {
-    name: "Mike",
-    role: "Web Developer",
-    discord_id: null,
-    avatar_hash: null,
-  },
-  {
-    name: "Admin1",
-    role: "Clan Admin",
-    discord_id: null,
-    avatar_hash: null,
-  },
-  {
-    name: "Admin2",
-    role: "Clan Admin",
-    discord_id: null,
-    avatar_hash: null,
-  },
-];
-
-const roleOrder = ["Owner", "Web Developer", "Clan Admin"];
+const roleOrder: StaffMember["staff_role"][] = ["Owner", "Web Developer", "Admin"];
 
 // ── Nav items (staff gets Admin Panel link, private/staff get Installation) ──
 const getNavItems = (isStaff: boolean) => {
@@ -120,7 +88,7 @@ const TexturePackPage = () => {
   const [latestVersion, setLatestVersion] = useState("1.2.1");
   const [fileSize, setFileSize] = useState("601.6 MB");
   const [pendingCount, setPendingCount] = useState(0);
-  const [staffMembers, setStaffMembers] = useState<StaffMember[]>(staffMembersDefault);
+  const [staffMembers, setStaffMembers] = useState<StaffMember[]>([]);
   const [scrollY, setScrollY] = useState(0);
   const initialHeight = useRef(
     typeof window !== "undefined" ? window.innerHeight : 800
@@ -175,20 +143,15 @@ const TexturePackPage = () => {
   useEffect(() => {
     const loadStaffProfiles = async () => {
       try {
-        const res = await fetch("/.netlify/functions/staff-profiles");
+        const res = await fetch("/.netlify/functions/staff-list", {
+          credentials: "include",
+        });
         if (!res.ok) return;
-        const data = await res.json();
+        const data = (await res.json()) as { staff?: StaffMember[] };
         if (!Array.isArray(data.staff)) return;
-        setStaffMembers(
-          data.staff.map((s: any) => ({
-            name: s.name,
-            role: s.role,
-            discord_id: s.discord_id ?? null,
-            avatar_hash: s.avatar_hash ?? null,
-          }))
-        );
+        setStaffMembers(data.staff);
       } catch {
-        // keep defaults
+        // keep empty list
       }
     };
 
@@ -211,7 +174,7 @@ const TexturePackPage = () => {
   const navItems = getNavItems(user!.is_staff);
   const staffByRole = roleOrder.map((role) => ({
     role,
-    members: staffMembers.filter((m) => m.role === role),
+    members: staffMembers.filter((m) => m.staff_role === role),
   }));
 
   // Hero image fades out over 70% of initial viewport height
@@ -352,7 +315,7 @@ const TexturePackPage = () => {
                     <div className="flex flex-wrap justify-center gap-6">
                       {group.members.map((member, memberIndex) => (
                         <motion.div
-                          key={member.name}
+                          key={member.discord_id}
                           className="bg-card border border-border rounded-lg p-6 text-center hover:border-primary/50 transition-all duration-300 w-full sm:w-[280px]"
                           initial={{ opacity: 0, y: 20 }}
                           animate={isInView ? { opacity: 1, y: 0 } : {}}
@@ -363,11 +326,8 @@ const TexturePackPage = () => {
                         >
                           <div className="w-20 h-20 mx-auto mb-4 rounded-full bg-muted border-2 border-primary/30 flex items-center justify-center overflow-hidden">
                             <img
-                              src={buildDiscordAvatarUrl(
-                                member.discord_id,
-                                member.avatar_hash
-                              )}
-                              alt={member.name}
+                              src={member.avatar_url || buildDiscordAvatarUrl(member.discord_id, member.avatar_hash)}
+                              alt={member.display_name}
                               className="w-full h-full object-cover"
                               onError={(e) => {
                                 e.currentTarget.style.display = "none";
@@ -382,12 +342,12 @@ const TexturePackPage = () => {
                             />
                           </div>
                           <h5 className={`font-display text-lg font-bold mb-2 ${
-                            member.name === "M1K3" ? "neon-text-blue" : "text-foreground"
+                            member.display_name === "M1K3" ? "neon-text-blue" : "text-foreground"
                           }`}>
-                            {member.name}
+                            {member.display_name}
                           </h5>
                           <div className="inline-block px-3 py-1 rounded-full bg-primary/10 border border-primary/30 text-xs font-semibold text-primary uppercase tracking-wide">
-                            {member.role}
+                            {member.staff_role}
                           </div>
                         </motion.div>
                       ))}
@@ -611,7 +571,12 @@ function PackNavbar({
   visible = true,
 }: {
   navItems: { label: string; href: string; route?: boolean }[];
-  user: { avatar: string | null; username: string; is_staff: boolean };
+  user: {
+    avatar: string | null;
+    username: string;
+    is_staff: boolean;
+    staff_tier?: "owner" | "webdev" | "admin" | null;
+  };
   pendingCount?: number;
   visible?: boolean;
 }) {
@@ -709,10 +674,13 @@ function PackNavbar({
               </button>
               {shieldOpen && (
                 <div className="absolute right-0 top-full mt-2 w-48 bg-card/95 backdrop-blur-sm border border-secondary/40 rounded-xl shadow-2xl shadow-secondary/20 z-50">
+                  <div className="px-4 pt-3 pb-2 text-[11px] uppercase tracking-wide text-muted-foreground border-b border-secondary/20">
+                    Signed in as {user.staff_tier === "owner" ? "Owner" : user.staff_tier === "webdev" ? "Web Developer" : user.staff_tier === "admin" ? "Admin" : "Staff"}
+                  </div>
                   <Link
                     to="/admin"
                     onClick={() => setShieldOpen(false)}
-                    className="flex items-center gap-2 px-4 py-3 text-sm font-display font-bold text-secondary hover:bg-secondary/15 transition rounded-t-xl"
+                    className="flex items-center gap-2 px-4 py-3 text-sm font-display font-bold text-secondary hover:bg-secondary/15 transition"
                   >
                     <Shield className="w-4 h-4" />
                     Admin Panel

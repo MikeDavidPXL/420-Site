@@ -9,6 +9,7 @@ import {
   supabase,
   json,
   buildDiscordAvatarUrl,
+  determineStaffTier,
 } from "./shared";
 
 const handler: Handler = async (event) => {
@@ -40,8 +41,10 @@ const handler: Handler = async (event) => {
     legacyAvatarHashFromUrl ??
     null;
 
-  // Role priority: staff > private > koth > nothing
-  const isStaff = roles.includes(process.env.DISCORD_STAFF_ROLE_ID!);
+  // Role priority: owner > webdev > admin
+  const staffTier = determineStaffTier(roles);
+  const hasLegacyStaffRole = roles.includes(process.env.DISCORD_STAFF_ROLE_ID!);
+  const isStaff = !!staffTier || hasLegacyStaffRole;
   const isPrivate = roles.includes(process.env.DISCORD_MEMBER_ROLE_ID!);
   const isKoth = roles.includes(process.env.DISCORD_KOTH_PLAYER_ROLE_ID!);
   const isUnverified = roles.includes(process.env.DISCORD_UNVERIFIED_ROLE_ID!);
@@ -132,6 +135,7 @@ const handler: Handler = async (event) => {
       avatar: buildDiscordAvatarUrl(session.discord_id, resolvedAvatarHash),
       in_guild: inGuild,
       is_staff: isStaff,
+      staff_tier: staffTier,
       is_private: isPrivate,
       is_koth: isKoth,
       is_unverified: isUnverified,

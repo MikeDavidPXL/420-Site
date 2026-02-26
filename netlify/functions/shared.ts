@@ -18,6 +18,35 @@ export interface SessionPayload {
   avatar_hash: string | null;
 }
 
+export type StaffTier = "owner" | "webdev" | "admin";
+
+export const OWNER_ROLE_ID =
+  process.env.DISCORD_OWNER_ROLE_ID ?? "1374050046311661819";
+export const WEBDEV_ROLE_ID =
+  process.env.DISCORD_WEBDEV_ROLE_ID ?? "1476227708332675277";
+export const ADMIN_ROLE_ID =
+  process.env.DISCORD_ADMIN_ROLE_ID ?? "1374050267661865000";
+
+export function determineStaffTier(roles: string[]): StaffTier | null {
+  if (roles.includes(OWNER_ROLE_ID)) return "owner";
+  if (roles.includes(WEBDEV_ROLE_ID)) return "webdev";
+  if (roles.includes(ADMIN_ROLE_ID)) return "admin";
+  return null;
+}
+
+export function staffTierRank(tier: StaffTier | null): number {
+  if (tier === "owner") return 3;
+  if (tier === "webdev") return 2;
+  if (tier === "admin") return 1;
+  return 0;
+}
+
+export function staffTierLabel(tier: StaffTier): "Owner" | "Web Developer" | "Admin" {
+  if (tier === "owner") return "Owner";
+  if (tier === "webdev") return "Web Developer";
+  return "Admin";
+}
+
 export function getDiscordDefaultAvatarIndex(discordId: string): number {
   try {
     return Number(BigInt(discordId) % 6n);
@@ -164,7 +193,12 @@ export function nextRankFor(currentRank: string, days: number): RankDef | null {
 
 // ── Fetch all guild members (paginated) ─────────────────────
 export interface GuildMember {
-  user: { id: string; username: string; global_name?: string | null };
+  user: {
+    id: string;
+    username: string;
+    global_name?: string | null;
+    avatar?: string | null;
+  };
   nick?: string | null;
   roles: string[];
 }

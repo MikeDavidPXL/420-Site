@@ -14,6 +14,7 @@ export interface User {
   avatar_hash?: string | null;
   in_guild: boolean;
   is_staff: boolean;
+  staff_tier?: "owner" | "webdev" | "admin" | null;
   is_private: boolean;
   is_koth: boolean;
   is_unverified: boolean;
