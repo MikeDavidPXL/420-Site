@@ -151,12 +151,28 @@ Fix planned in future updates.
 
 # Version
 
-Current Version: 1.2.1  
+Current Version: 1.2.2  
 Status: Active Development
 
 ---
 
 # Changelog
+
+## v1.2.2
+
+### Web Platform (Technical)
+- Scroll-driven hero experience implemented on `/pack` only (`TexturePackPage`) with threshold-based reveal flow
+- Added lightweight scroll loop using `requestAnimationFrame` + passive listeners to reduce scroll jank on mobile
+- Reveal thresholds introduced on pack page: `NAV_THRESHOLD = 100`, `CONTENT_THRESHOLD = 150`
+- Hero opacity now interpolates against initial viewport height (`heroOpacity = 1 - scrollY / (vh * 0.7)`) with `will-change: opacity`
+- `PackNavbar` now supports a `visible` prop and uses CSS transitions (`opacity` + `translateY`) for delayed entrance
+- Main pack content now reveals with staged transition (`opacity` + upward transform) to prevent content bleed behind hero
+
+### Moderation & Safety (Technical)
+- Added full ban report flow (`/ban-report`) with Netlify function handling and Discord owner notifications
+- Added 24-hour duplicate protection for ban report submissions
+- Appeal timing remains server-side while appeal date is hidden in player-facing success confirmation
+- Added persistent storage migration for reports: `migrations/005_create_ban_reports.sql`
 
 ## v1.2.1
 

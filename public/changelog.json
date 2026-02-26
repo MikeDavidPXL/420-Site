@@ -1,5 +1,17 @@
 [
   {
+    "version": "1.2.2",
+    "date": "26-02-2026",
+    "title": "Smoother Homepage + Ban Report Improvements",
+    "changes": [
+      "Homepage now opens cleaner: you first see only the hero banner for a more premium look",
+      "Navbar appears smoothly after you start scrolling instead of showing instantly",
+      "Main content sections now reveal smoothly while scrolling down",
+      "Added an in-game ban report flow so members can report bans directly from the website",
+      "Ban report success screen is now cleaner and no longer shows appeal timing details"
+    ]
+  },
+  {
     "version": "1.2.1",
     "date": "25-02-2026",
     "title": "Clan Homepage & Staff Team Update",
