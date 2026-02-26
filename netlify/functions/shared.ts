@@ -20,17 +20,15 @@ export interface SessionPayload {
 
 export type StaffTier = "owner" | "webdev" | "admin";
 
-export const OWNER_ROLE_ID =
-  process.env.DISCORD_OWNER_ROLE_ID ?? "1374050046311661819";
-export const WEBDEV_ROLE_ID =
-  process.env.DISCORD_WEBDEV_ROLE_ID ?? "1476227708332675277";
+export const OWNER_ROLE_ID = process.env.DISCORD_OWNER_ROLE_ID;
+export const WEBDEV_ROLE_ID = process.env.DISCORD_WEBDEV_ROLE_ID;
 export const ADMIN_ROLE_ID =
-  process.env.DISCORD_ADMIN_ROLE_ID ?? "1374050267661865000";
+  process.env.DISCORD_ADMIN_ROLE_ID ?? process.env.DISCORD_STAFF_ROLE_ID;
 
 export function determineStaffTier(roles: string[]): StaffTier | null {
-  if (roles.includes(OWNER_ROLE_ID)) return "owner";
-  if (roles.includes(WEBDEV_ROLE_ID)) return "webdev";
-  if (roles.includes(ADMIN_ROLE_ID)) return "admin";
+  if (OWNER_ROLE_ID && roles.includes(OWNER_ROLE_ID)) return "owner";
+  if (WEBDEV_ROLE_ID && roles.includes(WEBDEV_ROLE_ID)) return "webdev";
+  if (ADMIN_ROLE_ID && roles.includes(ADMIN_ROLE_ID)) return "admin";
   return null;
 }
 
