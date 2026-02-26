@@ -7,6 +7,9 @@ const STAFF_CONFIG = [
   { name: "Mike", role: "Web Developer" },
   { name: "Admin1", role: "Clan Admin" },
   { name: "Admin2", role: "Clan Admin" },
+  { name: "Admin3", role: "Clan Admin" },
+  { name: "Admin4", role: "Clan Admin" },
+
 ] as const;
 
 type GuildMember = {
@@ -28,6 +31,7 @@ function normalizeName(value: string): string {
 
 function pickBestMatch(targetName: string, candidates: GuildMember[]): GuildMember | null {
   const target = normalizeName(targetName);
+  const isShortTarget = target.length <= 3;
 
   const scored = candidates
     .map((member) => {
@@ -41,10 +45,8 @@ function pickBestMatch(targetName: string, candidates: GuildMember[]): GuildMemb
       for (const variant of variants) {
         if (variant === target) {
           score = Math.min(score, 0);
-        } else if (variant.startsWith(target)) {
+        } else if (!isShortTarget && variant.startsWith(target)) {
           score = Math.min(score, 1);
-        } else if (variant.includes(target)) {
-          score = Math.min(score, 2);
         }
       }
 
@@ -53,7 +55,12 @@ function pickBestMatch(targetName: string, candidates: GuildMember[]): GuildMemb
     .filter((entry) => Number.isFinite(entry.score))
     .sort((a, b) => a.score - b.score);
 
-  // Important: no random fallback to first candidate (caused wrong avatars)
+  // For short names (like "Jam"), allow only exact matches to avoid false positives (e.g. "Mr Raj")
+  if (isShortTarget) {
+    return scored.find((entry) => entry.score === 0)?.member ?? null;
+  }
+
+  // For longer names, allow exact or starts-with only
   return scored[0]?.member ?? null;
 }
 
