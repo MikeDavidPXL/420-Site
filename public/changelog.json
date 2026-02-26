@@ -1,5 +1,17 @@
 [
   {
+    "version": "1.2.3",
+    "date": "26-02-2026",
+    "title": "Discord Sync + Archive Flow",
+    "changes": [
+      "Added one-click Discord membership sync for clan staff",
+      "Members who leave the Discord server are now auto-archived instead of deleted",
+      "Archived members are excluded from promotion previews and promotion runs",
+      "Added Show Archived toggle with re-add flow (rejoin starts progression from scratch)",
+      "Changelog now shows latest update first with stacked older entries and smooth expand animation"
+    ]
+  },
+  {
     "version": "1.2.2",
     "date": "26-02-2026",
     "title": "Smoother Homepage + Ban Report Improvements",
