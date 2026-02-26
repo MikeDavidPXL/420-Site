@@ -24,6 +24,7 @@ import {
   X,
 } from "lucide-react";
 import clanLogo from "@/assets/clan-logo.png";
+import { buildDiscordAvatarUrl } from "@/lib/discord";
 
 const POLL_INTERVAL = 10_000; // 10 seconds
 
@@ -34,6 +35,7 @@ interface AdminNote {
   created_at: string;
   created_by: string;
   created_by_username?: string | null;
+  created_by_avatar_hash?: string | null;
 }
 
 interface AdminApp {
@@ -688,10 +690,21 @@ const AdminPanel = () => {
                               <p className="text-sm text-foreground whitespace-pre-wrap">
                                 {n.note}
                               </p>
-                              <p className="text-xs text-muted-foreground mt-1">
-                                {n.created_by_username || n.created_by} ·{" "}
-                                {new Date(n.created_at).toLocaleString()}
-                              </p>
+                              <div className="mt-1 flex items-center gap-2 text-xs text-muted-foreground">
+                                <img
+                                  src={buildDiscordAvatarUrl(
+                                    n.created_by,
+                                    n.created_by_avatar_hash
+                                  )}
+                                  alt={n.created_by_username || n.created_by}
+                                  className="w-4 h-4 rounded-full border border-yellow-500/30"
+                                  loading="lazy"
+                                />
+                                <span>
+                                  {n.created_by_username || n.created_by} ·{" "}
+                                  {new Date(n.created_at).toLocaleString()}
+                                </span>
+                              </div>
                             </div>
                           ))}
                         </div>

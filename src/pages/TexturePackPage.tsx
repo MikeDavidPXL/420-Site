@@ -25,6 +25,7 @@ import {
 } from "lucide-react";
 import clanLogo from "@/assets/clan-logo.png";
 import heroBanner from "@/assets/420Gif.png";
+import { buildDiscordAvatarUrl } from "@/lib/discord";
 
 // ── Types ─────────────────────────────────────────────────
 interface ChangelogEntry {
@@ -46,39 +47,47 @@ const features = [
 ];
 
 // ── Staff members configuration ─────────────────────────────
-const staffMembers = [
+type StaffMember = {
+  name: string;
+  role: string;
+  discord_id: string | null;
+  avatar_hash: string | null;
+};
+
+const staffMembersDefault: StaffMember[] = [
   {
     name: "Jam",
     role: "Owner",
-    avatar_url: "/images/staff/mike.png",
+    discord_id: null,
+    avatar_hash: null,
   },
   {
     name: "Zuo",
     role: "Owner",
-    avatar_url: "/images/staff/mike.png",
+    discord_id: null,
+    avatar_hash: null,
   },
   {
     name: "Mike",
     role: "Web Developer",
-    avatar_url: "/images/staff/webdev.png",
+    discord_id: null,
+    avatar_hash: null,
   },
   {
     name: "Admin1",
     role: "Clan Admin",
-    avatar_url: "/images/staff/admin1.png",
+    discord_id: null,
+    avatar_hash: null,
   },
   {
     name: "Admin2",
     role: "Clan Admin",
-    avatar_url: "/images/staff/admin2.png",
+    discord_id: null,
+    avatar_hash: null,
   },
 ];
 
 const roleOrder = ["Owner", "Web Developer", "Clan Admin"];
-const staffByRole = roleOrder.map((role) => ({
-  role,
-  members: staffMembers.filter((m) => m.role === role),
-}));
 
 // ── Nav items (staff gets Admin Panel link, private/staff get Installation) ──
 const getNavItems = (isStaff: boolean) => {
@@ -111,6 +120,7 @@ const TexturePackPage = () => {
   const [latestVersion, setLatestVersion] = useState("1.2.1");
   const [fileSize, setFileSize] = useState("601.6 MB");
   const [pendingCount, setPendingCount] = useState(0);
+  const [staffMembers, setStaffMembers] = useState<StaffMember[]>(staffMembersDefault);
   const [scrollY, setScrollY] = useState(0);
   const initialHeight = useRef(
     typeof window !== "undefined" ? window.innerHeight : 800
@@ -162,6 +172,29 @@ const TexturePackPage = () => {
     return () => clearInterval(id);
   }, [user, fetchPendingCount]);
 
+  useEffect(() => {
+    const loadStaffProfiles = async () => {
+      try {
+        const res = await fetch("/.netlify/functions/staff-profiles");
+        if (!res.ok) return;
+        const data = await res.json();
+        if (!Array.isArray(data.staff)) return;
+        setStaffMembers(
+          data.staff.map((s: any) => ({
+            name: s.name,
+            role: s.role,
+            discord_id: s.discord_id ?? null,
+            avatar_hash: s.avatar_hash ?? null,
+          }))
+        );
+      } catch {
+        // keep defaults
+      }
+    };
+
+    loadStaffProfiles();
+  }, []);
+
   // Guard: must be logged in + have private or staff role
   if (!loading && (!user || (!user.is_private && !user.is_staff))) {
     return <Navigate to="/dashboard" replace />;
@@ -176,6 +209,10 @@ const TexturePackPage = () => {
   }
 
   const navItems = getNavItems(user!.is_staff);
+  const staffByRole = roleOrder.map((role) => ({
+    role,
+    members: staffMembers.filter((m) => m.role === role),
+  }));
 
   // Hero image fades out over 70% of initial viewport height
   const heroOpacity = Math.max(0, 1 - scrollY / (initialHeight.current * 0.7));
@@ -326,7 +363,10 @@ const TexturePackPage = () => {
                         >
                           <div className="w-20 h-20 mx-auto mb-4 rounded-full bg-muted border-2 border-primary/30 flex items-center justify-center overflow-hidden">
                             <img
-                              src={member.avatar_url}
+                              src={buildDiscordAvatarUrl(
+                                member.discord_id,
+                                member.avatar_hash
+                              )}
                               alt={member.name}
                               className="w-full h-full object-cover"
                               onError={(e) => {

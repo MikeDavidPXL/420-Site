@@ -15,7 +15,31 @@ const SECRET = process.env.SESSION_SECRET!;
 export interface SessionPayload {
   discord_id: string;
   username: string;
-  avatar: string | null;
+  avatar_hash: string | null;
+}
+
+export function getDiscordDefaultAvatarIndex(discordId: string): number {
+  try {
+    return Number(BigInt(discordId) % 6n);
+  } catch {
+    return 0;
+  }
+}
+
+export function buildDiscordAvatarUrl(
+  discordId: string | null | undefined,
+  avatarHash: string | null | undefined
+): string {
+  if (discordId && avatarHash) {
+    return `https://cdn.discordapp.com/avatars/${discordId}/${avatarHash}.png?v=${avatarHash}`;
+  }
+
+  if (discordId) {
+    const index = getDiscordDefaultAvatarIndex(discordId);
+    return `https://cdn.discordapp.com/embed/avatars/${index}.png`;
+  }
+
+  return "https://cdn.discordapp.com/embed/avatars/0.png";
 }
 
 export function createSession(payload: SessionPayload): string {

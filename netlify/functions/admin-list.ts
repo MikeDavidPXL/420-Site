@@ -3,6 +3,15 @@
 import type { Handler } from "@netlify/functions";
 import { getSessionFromCookie, discordFetch, supabase, json } from "./shared";
 
+type NoteRow = {
+  id: string;
+  note: string;
+  created_at: string;
+  created_by: string;
+  created_by_username?: string | null;
+  created_by_avatar_hash?: string | null;
+};
+
 const handler: Handler = async (event) => {
   // Auth check
   const session = getSessionFromCookie(event.headers.cookie);
@@ -43,11 +52,42 @@ const handler: Handler = async (event) => {
     return json({ error: "Failed to fetch applications" }, 500);
   }
 
-  // Sort nested notes newest-first
-  const apps = (data ?? []).map((app: any) => ({
+  const rawApps = data ?? [];
+
+  const authorIds = Array.from(
+    new Set(
+      rawApps
+        .flatMap((app: any) => app.application_notes ?? [])
+        .map((note: NoteRow) => note.created_by)
+        .filter(Boolean)
+    )
+  );
+
+  const avatarHashByAuthorId = new Map<string, string | null>();
+
+  await Promise.all(
+    authorIds.map(async (authorId) => {
+      const noteMember = await discordFetch(
+        `/guilds/${process.env.DISCORD_GUILD_ID}/members/${authorId}`,
+        process.env.DISCORD_BOT_TOKEN!,
+        true
+      );
+
+      avatarHashByAuthorId.set(authorId, noteMember?.user?.avatar ?? null);
+    })
+  );
+
+  // Sort nested notes newest-first + enrich with avatar hash
+  const apps = rawApps.map((app: any) => ({
     ...app,
-    application_notes: (app.application_notes ?? []).sort(
-      (a: any, b: any) =>
+    application_notes: (app.application_notes ?? [])
+      .map((note: NoteRow) => ({
+        ...note,
+        created_by_avatar_hash:
+          avatarHashByAuthorId.get(note.created_by) ?? null,
+      }))
+      .sort(
+      (a: NoteRow, b: NoteRow) =>
         new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
     ),
   }));

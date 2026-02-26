@@ -11,6 +11,7 @@ export interface User {
   discord_id: string;
   username: string;
   avatar: string | null;
+  avatar_hash?: string | null;
   in_guild: boolean;
   is_staff: boolean;
   is_private: boolean;

@@ -39,9 +39,7 @@ const handler: Handler = async (event) => {
   const sessionToken = createSession({
     discord_id: user.id,
     username: user.username,
-    avatar: user.avatar
-      ? `https://cdn.discordapp.com/avatars/${user.id}/${user.avatar}.png`
-      : null,
+    avatar_hash: user.avatar ?? null,
   });
 
   // Set cookie and redirect

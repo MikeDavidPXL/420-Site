@@ -3,7 +3,13 @@
 // Discord roles are ALWAYS the source of truth for access.
 // DB application status is historical — never grants access on its own.
 import type { Handler } from "@netlify/functions";
-import { getSessionFromCookie, discordFetch, supabase, json } from "./shared";
+import {
+  getSessionFromCookie,
+  discordFetch,
+  supabase,
+  json,
+  buildDiscordAvatarUrl,
+} from "./shared";
 
 const handler: Handler = async (event) => {
   const session = getSessionFromCookie(event.headers.cookie);
@@ -109,7 +115,8 @@ const handler: Handler = async (event) => {
     user: {
       discord_id: session.discord_id,
       username: session.username,
-      avatar: session.avatar,
+      avatar_hash: session.avatar_hash,
+      avatar: buildDiscordAvatarUrl(session.discord_id, session.avatar_hash),
       in_guild: inGuild,
       is_staff: isStaff,
       is_private: isPrivate,
