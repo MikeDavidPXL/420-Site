@@ -151,12 +151,26 @@ Fix planned in future updates.
 
 # Version
 
-Current Version: 1.2.2  
+Current Version: 1.2.4  
 Status: Active Development
 
 ---
 
 # Changelog
+
+## v1.2.4
+
+- Fixed changelog animation behavior on `/pack` (`TexturePackPage`) so the newest entry is shown first
+- Added stacked preview cards behind the latest entry for clearer visual hierarchy
+- Added smooth expand/collapse animation for older updates on click
+
+## v1.2.3
+
+- Added staff-triggered Discord membership sync for clan list management
+- Members who leave the Discord guild are now auto-archived (no hard delete)
+- Archived members are excluded from promotion preview/run logic
+- Added Show Archived + re-add flow (rejoin starts progression from scratch)
+- Updated changelog UI to highlight the latest entry with expandable older entries
 
 ## v1.2.2
 
