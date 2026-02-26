@@ -21,6 +21,8 @@ import {
   Check,
   Trash2,
   Shield,
+  RefreshCw,
+  UserPlus,
 } from "lucide-react";
 import * as XLSX from "xlsx";
 import clanLogo from "@/assets/clan-logo.png";
@@ -48,6 +50,12 @@ interface ClanMember {
   days_until_next_rank: string | number;
   created_at: string;
   updated_at: string;
+  // Archived/sync fields
+  in_guild?: boolean;
+  archived_at?: string | null;
+  archived_by?: string | null;
+  archive_reason?: string | null;
+  left_guild_at?: string | null;
 }
 
 interface PromotionEntry {
@@ -170,6 +178,12 @@ const ClanListPage = () => {
   const [bulkResolving, setBulkResolving] = useState(false);
   const [bulkResult, setBulkResult] = useState<string | null>(null);
 
+  // ── Discord sync ────────────────────────────────────────
+  const [syncLoading, setSyncLoading] = useState(false);
+  const [syncResult, setSyncResult] = useState<string | null>(null);
+  const [showArchived, setShowArchived] = useState(false);
+  const [archivedCount, setArchivedCount] = useState(0);
+
   // ── Manual promotion ────────────────────────────────────
   const [manualPromoMemberId, setManualPromoMemberId] = useState<string | null>(null);
   const [manualPromoNewRank, setManualPromoNewRank] = useState<string>("");
@@ -186,6 +200,7 @@ const ClanListPage = () => {
         if (statusFilter) params.set("status", statusFilter);
         if (tagFilter) params.set("has_420_tag", tagFilter);
         if (promoFilter) params.set("promotion_due", promoFilter);
+        if (showArchived) params.set("show_archived", "true");
 
         const res = await fetch(
           `/.netlify/functions/clan-list-members?${params}`
@@ -201,6 +216,7 @@ const ClanListPage = () => {
         setTotalPages(data.total_pages ?? 1);
         setPromoDueCount(data.promotion_due_count ?? 0);
         setUnresolvedCount(data.unresolved_count ?? 0);
+        setArchivedCount(data.archived_count ?? 0);
       } catch {
         setUiError("Network error while loading clan list.");
         setMembers([]);
@@ -208,7 +224,7 @@ const ClanListPage = () => {
         setMembersLoading(false);
       }
     },
-    [statusFilter, tagFilter, promoFilter]
+    [statusFilter, tagFilter, promoFilter, showArchived]
   );
 
   useEffect(() => {
@@ -250,6 +266,67 @@ const ClanListPage = () => {
       setBulkResult("Network error during bulk resolve.");
     } finally {
       setBulkResolving(false);
+    }
+  };
+
+  // ── Discord sync handler ────────────────────────────────
+  const handleDiscordSync = async () => {
+    setSyncLoading(true);
+    setSyncResult(null);
+    try {
+      const res = await fetch("/.netlify/functions/clan-sync-discord", {
+        method: "POST",
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setSyncResult(data?.error || "Sync failed.");
+        return;
+      }
+      setSyncResult(
+        `Synced! ${data.checked_count} checked, ${data.still_in_guild_count} in guild, ${data.archived_left_guild_count} archived (left Discord).`
+      );
+      fetchMembers(page, debouncedSearch);
+    } catch {
+      setSyncResult("Network error during sync.");
+    } finally {
+      setSyncLoading(false);
+    }
+  };
+
+  // ── Re-add archived member as new ───────────────────────
+  const handleReaddMember = async (archivedMember: ClanMember) => {
+    if (!confirm(`Re-add ${archivedMember.discord_name || archivedMember.ign} as a new member? They will start over from Private rank with 0 days.`)) {
+      return;
+    }
+    try {
+      const res = await fetch("/.netlify/functions/clan-list-member", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          discord_name: archivedMember.discord_name,
+          ign: archivedMember.ign,
+          uid: archivedMember.uid,
+          join_date: new Date().toISOString().split("T")[0],
+          status: "active",
+          has_420_tag: false,
+          rank_current: "Private",
+          source: "rejoin",
+          discord_id: archivedMember.discord_id,
+          allow_unresolved: !archivedMember.discord_id,
+        }),
+      });
+      const result = await res.json();
+      if (!res.ok) {
+        setUiError(result.error || "Failed to re-add member");
+        return;
+      }
+      setShowArchived(false);
+      fetchMembers(1, "");
+      setPage(1);
+      setSearch("");
+      setDebouncedSearch("");
+    } catch {
+      setUiError("Network error while re-adding member.");
     }
   };
 
@@ -786,11 +863,51 @@ const ClanListPage = () => {
                 {unresolvedCount} unresolved
               </span>
             )}
+            {archivedCount > 0 && (
+              <span className="text-red-400">
+                <Users className="w-3 h-3 inline mr-0.5" />
+                {archivedCount} archived
+              </span>
+            )}
           </div>
         </div>
 
+        {/* ── Discord Sync + Bulk resolve + Show Archived ── */}
+        <div className="flex flex-wrap items-center gap-3">
+          <button
+            onClick={handleDiscordSync}
+            disabled={syncLoading || showArchived}
+            className="inline-flex items-center gap-2 border border-blue-400/40 text-blue-400 hover:bg-blue-400/10 font-display font-bold px-5 py-2.5 rounded-lg transition disabled:opacity-50"
+            title="Check Discord membership and archive members who left"
+          >
+            {syncLoading ? (
+              <Loader2 className="w-4 h-4 animate-spin" />
+            ) : (
+              <Users className="w-4 h-4" />
+            )}
+            {syncLoading ? "Syncing..." : "Refresh Discord Sync"}
+          </button>
+          {syncResult && (
+            <span className="text-xs text-muted-foreground">{syncResult}</span>
+          )}
+          <button
+            onClick={() => {
+              setShowArchived((v) => !v);
+              setPage(1);
+            }}
+            className={`inline-flex items-center gap-2 border font-display font-bold px-5 py-2.5 rounded-lg transition ${
+              showArchived
+                ? "border-red-400 text-red-400 bg-red-400/10"
+                : "border-muted-foreground/40 text-muted-foreground hover:bg-muted-foreground/10"
+            }`}
+          >
+            {showArchived ? <Check className="w-4 h-4" /> : <Users className="w-4 h-4" />}
+            {showArchived ? "Showing Archived" : "Show Archived"}
+          </button>
+        </div>
+
         {/* ── Bulk resolve ── */}
-        {unresolvedCount > 0 && (
+        {unresolvedCount > 0 && !showArchived && (
           <div className="flex flex-wrap items-center gap-3">
             <button
               onClick={handleBulkResolve}
@@ -1215,9 +1332,13 @@ const ClanListPage = () => {
                     <tr
                       key={m.id}
                       className={`border-b border-border/50 ${
-                        i % 2 === 0 ? "bg-card" : "bg-muted/30"
+                        m.archived_at
+                          ? "bg-red-950/20 opacity-60"
+                          : i % 2 === 0
+                          ? "bg-card"
+                          : "bg-muted/30"
                       } hover:bg-secondary/5 transition ${
-                        m.promote_eligible ? "ring-1 ring-green-500/30" : ""
+                        m.promote_eligible && !m.archived_at ? "ring-1 ring-green-500/30" : ""
                       }`}
                     >
                       <td className="px-3 py-2.5 text-foreground whitespace-nowrap max-w-[160px]">
@@ -1348,6 +1469,22 @@ const ClanListPage = () => {
                       <td className="px-3 py-2.5 text-center">
                         {savingField === m.id ? (
                           <Loader2 className="w-3 h-3 animate-spin text-secondary mx-auto" />
+                        ) : m.archived_at ? (
+                          <div className="flex items-center justify-center gap-1.5">
+                            <span
+                              className="text-xs text-red-400 cursor-help"
+                              title={`Archived ${new Date(m.archived_at).toLocaleDateString()}${m.archive_reason ? ` - ${m.archive_reason}` : ""}${m.left_guild_at ? ` (Left guild ${new Date(m.left_guild_at).toLocaleDateString()})` : ""}`}
+                            >
+                              Archived
+                            </span>
+                            <button
+                              onClick={() => handleReaddMember(m)}
+                              className="text-green-400 hover:text-green-300 transition p-0.5"
+                              title="Re-add as new member (starts over)"
+                            >
+                              <UserPlus className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
                         ) : (
                           <div className="flex items-center justify-center gap-1.5">
                             {m.promote_reason && (
@@ -1389,7 +1526,9 @@ const ClanListPage = () => {
                 <div
                   key={m.id}
                   className={`bg-card border rounded-lg p-4 space-y-2 ${
-                    m.promote_eligible
+                    m.archived_at
+                      ? "border-red-500/40 opacity-60"
+                      : m.promote_eligible
                       ? "border-green-500/40"
                       : "border-secondary/20"
                   }`}
@@ -1468,45 +1607,65 @@ const ClanListPage = () => {
                     </span>
                   </div>
                   <div className="flex items-center gap-4">
-                    <label className="flex items-center gap-1.5 text-xs cursor-pointer select-none">
-                      <input
-                        type="checkbox"
-                        checked={m.has_420_tag}
-                        onChange={(e) =>
-                          updateMember(m.id, {
-                            has_420_tag: e.target.checked,
-                          })
-                        }
-                        disabled={savingField === m.id}
-                        className="accent-secondary w-3.5 h-3.5 rounded"
-                      />
-                      420 Tag
-                    </label>
-                    <select
-                      value={m.status}
-                      onChange={(e) =>
-                        updateMember(m.id, { status: e.target.value })
-                      }
-                      disabled={savingField === m.id}
-                      className={`bg-transparent border border-border/50 rounded pl-2 pr-8 py-0.5 text-xs font-display font-bold cursor-pointer focus:outline-none ${
-                        m.status === "active"
-                          ? "text-green-400"
-                          : "text-red-400"
-                      }`}
-                    >
-                      <option value="active">Active</option>
-                      <option value="inactive">Inactive</option>
-                    </select>
-                    {savingField === m.id && (
-                      <Loader2 className="w-3 h-3 animate-spin text-secondary" />
-                    )}
-                    {m.needs_resolution && (
-                      <button
-                        onClick={() => openResolveForMember(m.id, m.discord_name)}
-                        className="text-xs border border-yellow-400/40 text-yellow-400 hover:bg-yellow-400/10 px-2 py-1 rounded font-display font-bold"
-                      >
-                        Resolve
-                      </button>
+                    {m.archived_at ? (
+                      <>
+                        <span
+                          className="text-xs text-red-400 cursor-help"
+                          title={`Archived ${new Date(m.archived_at).toLocaleDateString()}${m.archive_reason ? ` - ${m.archive_reason}` : ""}${m.left_guild_at ? ` (Left guild ${new Date(m.left_guild_at).toLocaleDateString()})` : ""}`}
+                        >
+                          Archived
+                        </span>
+                        <button
+                          onClick={() => handleReaddMember(m)}
+                          className="text-xs border border-green-400/40 text-green-400 hover:bg-green-400/10 px-2 py-1 rounded font-display font-bold flex items-center gap-1"
+                        >
+                          <UserPlus className="w-3 h-3" />
+                          Re-add
+                        </button>
+                      </>
+                    ) : (
+                      <>
+                        <label className="flex items-center gap-1.5 text-xs cursor-pointer select-none">
+                          <input
+                            type="checkbox"
+                            checked={m.has_420_tag}
+                            onChange={(e) =>
+                              updateMember(m.id, {
+                                has_420_tag: e.target.checked,
+                              })
+                            }
+                            disabled={savingField === m.id}
+                            className="accent-secondary w-3.5 h-3.5 rounded"
+                          />
+                          420 Tag
+                        </label>
+                        <select
+                          value={m.status}
+                          onChange={(e) =>
+                            updateMember(m.id, { status: e.target.value })
+                          }
+                          disabled={savingField === m.id}
+                          className={`bg-transparent border border-border/50 rounded pl-2 pr-8 py-0.5 text-xs font-display font-bold cursor-pointer focus:outline-none ${
+                            m.status === "active"
+                              ? "text-green-400"
+                              : "text-red-400"
+                          }`}
+                        >
+                          <option value="active">Active</option>
+                          <option value="inactive">Inactive</option>
+                        </select>
+                        {savingField === m.id && (
+                          <Loader2 className="w-3 h-3 animate-spin text-secondary" />
+                        )}
+                        {m.needs_resolution && (
+                          <button
+                            onClick={() => openResolveForMember(m.id, m.discord_name)}
+                            className="text-xs border border-yellow-400/40 text-yellow-400 hover:bg-yellow-400/10 px-2 py-1 rounded font-display font-bold"
+                          >
+                            Resolve
+                          </button>
+                        )}
+                      </>
                     )}
                   </div>
                 </div>

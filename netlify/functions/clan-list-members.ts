@@ -41,12 +41,20 @@ const handler: Handler = async (event) => {
   const statusFilter = params.status; // active | inactive
   const tagFilter = params.has_420_tag; // true | false
   const promoFilter = params.promotion_due; // true | false
+  const archivedFilter = params.show_archived; // true = show archived only, false/omit = active only
 
   // ── Build query ───────────────────────────────────────────
   let query = supabase
     .from("clan_list_members")
     .select("*", { count: "exact" })
     .order("join_date", { ascending: true });
+
+  // Archived filter: by default only show non-archived members
+  if (archivedFilter === "true") {
+    query = query.not("archived_at", "is", null);
+  } else {
+    query = query.is("archived_at", null);
+  }
 
   if (statusFilter === "active" || statusFilter === "inactive") {
     query = query.eq("status", statusFilter);
@@ -114,16 +122,23 @@ const handler: Handler = async (event) => {
     };
   });
 
-  // Counts for UI
+  // Counts for UI (only active/non-archived members)
   const { count: promoCount } = await supabase
     .from("clan_list_members")
     .select("id", { count: "exact", head: true })
-    .eq("promote_eligible", true);
+    .eq("promote_eligible", true)
+    .is("archived_at", null);
 
   const { count: unresolvedCount } = await supabase
     .from("clan_list_members")
     .select("id", { count: "exact", head: true })
-    .eq("needs_resolution", true);
+    .eq("needs_resolution", true)
+    .is("archived_at", null);
+
+  const { count: archivedCount } = await supabase
+    .from("clan_list_members")
+    .select("id", { count: "exact", head: true })
+    .not("archived_at", "is", null);
 
   return json({
     members,
@@ -133,6 +148,7 @@ const handler: Handler = async (event) => {
     total_pages: Math.ceil(total / PAGE_SIZE),
     promotion_due_count: promoCount ?? 0,
     unresolved_count: unresolvedCount ?? 0,
+    archived_count: archivedCount ?? 0,
   });
 };
 

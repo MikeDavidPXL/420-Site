@@ -59,12 +59,14 @@ const handler: Handler = async (event) => {
     // empty body is fine
   }
 
-  // ── Fetch eligible members ────────────────────────────────
+  // ── Fetch eligible members (exclude archived/not-in-guild) ─
   const { data: candidates, error: fetchErr } = await supabase
     .from("clan_list_members")
     .select("*")
     .eq("status", "active")
-    .eq("has_420_tag", true);
+    .eq("has_420_tag", true)
+    .is("archived_at", null)
+    .eq("in_guild", true);
 
   if (fetchErr) {
     console.error("Promotions query error:", fetchErr);

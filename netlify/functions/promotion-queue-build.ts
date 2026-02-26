@@ -34,12 +34,14 @@ const handler: Handler = async (event) => {
   }
 
   try {
-    // ── Fetch all active members ──────────────────────────────
+    // ── Fetch all active members (exclude archived and not-in-guild) ──
     const { data: allMembers, error: fetchErr } = await supabase
       .from("clan_list_members")
       .select("*")
       .eq("status", "active")
-      .eq("has_420_tag", true);
+      .eq("has_420_tag", true)
+      .is("archived_at", null)
+      .eq("in_guild", true);
 
     if (fetchErr) {
       console.error("Fetch members error:", fetchErr);
