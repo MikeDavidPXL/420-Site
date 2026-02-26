@@ -27,6 +27,19 @@ const handler: Handler = async (event) => {
   const inGuild = !!member;
   const roles: string[] = member?.roles ?? [];
 
+  const legacyAvatarHashFromUrl = (() => {
+    const legacyUrl = (session as any)?.avatar as string | undefined;
+    if (!legacyUrl) return null;
+    const match = legacyUrl.match(/\/avatars\/[^/]+\/([^/.?]+)\.(png|jpg|jpeg|webp|gif)/i);
+    return match?.[1] ?? null;
+  })();
+
+  const resolvedAvatarHash =
+    member?.user?.avatar ??
+    session.avatar_hash ??
+    legacyAvatarHashFromUrl ??
+    null;
+
   // Role priority: staff > private > koth > nothing
   const isStaff = roles.includes(process.env.DISCORD_STAFF_ROLE_ID!);
   const isPrivate = roles.includes(process.env.DISCORD_MEMBER_ROLE_ID!);
@@ -115,8 +128,8 @@ const handler: Handler = async (event) => {
     user: {
       discord_id: session.discord_id,
       username: session.username,
-      avatar_hash: session.avatar_hash,
-      avatar: buildDiscordAvatarUrl(session.discord_id, session.avatar_hash),
+      avatar_hash: resolvedAvatarHash,
+      avatar: buildDiscordAvatarUrl(session.discord_id, resolvedAvatarHash),
       in_guild: inGuild,
       is_staff: isStaff,
       is_private: isPrivate,

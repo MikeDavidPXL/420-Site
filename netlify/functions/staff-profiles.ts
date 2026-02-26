@@ -19,25 +19,42 @@ type GuildMember = {
   };
 };
 
+function normalizeName(value: string): string {
+  return value
+    .toLowerCase()
+    .normalize("NFKD")
+    .replace(/[^a-z0-9]/g, "");
+}
+
 function pickBestMatch(targetName: string, candidates: GuildMember[]): GuildMember | null {
-  const lower = targetName.toLowerCase();
+  const target = normalizeName(targetName);
 
-  const exact = candidates.find((m) => {
-    const nick = String(m.nick ?? "").toLowerCase();
-    const username = String(m.user?.username ?? "").toLowerCase();
-    const globalName = String(m.user?.global_name ?? "").toLowerCase();
-    return nick === lower || username === lower || globalName === lower;
-  });
-  if (exact) return exact;
+  const scored = candidates
+    .map((member) => {
+      const variants = [
+        normalizeName(String(member.nick ?? "")),
+        normalizeName(String(member.user?.username ?? "")),
+        normalizeName(String(member.user?.global_name ?? "")),
+      ].filter(Boolean);
 
-  const partial = candidates.find((m) => {
-    const nick = String(m.nick ?? "").toLowerCase();
-    const username = String(m.user?.username ?? "").toLowerCase();
-    const globalName = String(m.user?.global_name ?? "").toLowerCase();
-    return nick.includes(lower) || username.includes(lower) || globalName.includes(lower);
-  });
+      let score = Number.POSITIVE_INFINITY;
+      for (const variant of variants) {
+        if (variant === target) {
+          score = Math.min(score, 0);
+        } else if (variant.startsWith(target)) {
+          score = Math.min(score, 1);
+        } else if (variant.includes(target)) {
+          score = Math.min(score, 2);
+        }
+      }
 
-  return partial ?? candidates[0] ?? null;
+      return { member, score };
+    })
+    .filter((entry) => Number.isFinite(entry.score))
+    .sort((a, b) => a.score - b.score);
+
+  // Important: no random fallback to first candidate (caused wrong avatars)
+  return scored[0]?.member ?? null;
 }
 
 const handler: Handler = async (event) => {
