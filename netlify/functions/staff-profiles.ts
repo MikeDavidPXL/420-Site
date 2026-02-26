@@ -1,7 +1,13 @@
 import type { Handler } from "@netlify/functions";
 import { getSessionFromCookie, discordFetch, json } from "./shared";
 
-const STAFF_CONFIG = [
+type StaffConfigEntry = {
+  name: string;
+  role: string;
+  discord_id?: string;
+};
+
+const STAFF_CONFIG: StaffConfigEntry[] = [
   { name: "Jam", role: "Owner", discord_id: "777216423470039040" },
   { name: "Zuo", role: "Owner" },
   { name: "Mike", role: "Web Developer" },
