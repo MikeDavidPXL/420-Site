@@ -2,7 +2,7 @@ import type { Handler } from "@netlify/functions";
 import { getSessionFromCookie, discordFetch, json } from "./shared";
 
 const STAFF_CONFIG = [
-  { name: "Jam", role: "Owner" },
+  { name: "Jam", role: "Owner", discord_id: "777216423470039040" },
   { name: "Zuo", role: "Owner" },
   { name: "Mike", role: "Web Developer" },
   { name: "Admin1", role: "Clan Admin" },
@@ -80,6 +80,21 @@ const handler: Handler = async (event) => {
 
   const profiles = await Promise.all(
     STAFF_CONFIG.map(async (staff) => {
+      if (staff.discord_id) {
+        const directMember = await discordFetch(
+          `/guilds/${process.env.DISCORD_GUILD_ID}/members/${staff.discord_id}`,
+          process.env.DISCORD_BOT_TOKEN!,
+          true
+        );
+
+        return {
+          name: staff.name,
+          role: staff.role,
+          discord_id: directMember?.user?.id ?? staff.discord_id,
+          avatar_hash: directMember?.user?.avatar ?? null,
+        };
+      }
+
       const result = (await discordFetch(
         `/guilds/${process.env.DISCORD_GUILD_ID}/members/search?query=${encodeURIComponent(staff.name)}&limit=10`,
         process.env.DISCORD_BOT_TOKEN!,
