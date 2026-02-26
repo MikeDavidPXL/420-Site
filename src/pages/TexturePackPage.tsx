@@ -653,14 +653,14 @@ function PackNavbar({
               <button
                 type="button"
                 onClick={() => setShieldOpen((o) => !o)}
-                className={`relative transition ${
+                className={`relative inline-flex h-8 w-8 items-center justify-center rounded-md transition ${
                   shieldOpen
                     ? "text-secondary drop-shadow-[0_0_6px_rgba(168,85,247,0.7)]"
                     : "text-secondary/70 hover:text-secondary hover:drop-shadow-[0_0_6px_rgba(168,85,247,0.5)]"
                 }`}
                 aria-label="Admin tools"
               >
-                <Shield className="w-5 h-5" />
+                <Shield className="w-4.5 h-4.5" />
                 {pendingCount > 0 && (
                   <span className="absolute -top-1.5 -right-1.5 bg-red-500 text-white text-[9px] font-bold min-w-[16px] h-[16px] flex items-center justify-center rounded-full px-0.5 animate-pulse">
                     {pendingCount > 99 ? "99+" : pendingCount}

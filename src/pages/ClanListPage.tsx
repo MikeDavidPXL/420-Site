@@ -1008,7 +1008,7 @@ const ClanListPage = () => {
                           status: e.target.value as "active" | "inactive",
                         }))
                       }
-                      className="w-full bg-muted border border-border rounded-lg px-3 py-2 text-sm text-foreground focus:ring-2 focus:ring-secondary/50 focus:outline-none"
+                      className="w-full bg-muted border border-border rounded-lg pl-3 pr-10 py-2 text-sm text-foreground focus:ring-2 focus:ring-secondary/50 focus:outline-none"
                     >
                       <option value="active">Active</option>
                       <option value="inactive">Inactive</option>
@@ -1026,7 +1026,7 @@ const ClanListPage = () => {
                           rank_current: e.target.value,
                         }))
                       }
-                      className="w-full bg-muted border border-border rounded-lg px-3 py-2 text-sm text-foreground focus:ring-2 focus:ring-secondary/50 focus:outline-none"
+                      className="w-full bg-muted border border-border rounded-lg pl-3 pr-10 py-2 text-sm text-foreground focus:ring-2 focus:ring-secondary/50 focus:outline-none"
                     >
                       {RANKS.map((r) => (
                         <option key={r} value={r}>
@@ -1069,7 +1069,7 @@ const ClanListPage = () => {
                           discord_name: selected?.label || f.discord_name,
                         }));
                       }}
-                      className="w-full bg-muted border border-border rounded-lg px-3 py-2 text-sm text-foreground focus:ring-2 focus:ring-secondary/50 focus:outline-none"
+                      className="w-full bg-muted border border-border rounded-lg pl-3 pr-10 py-2 text-sm text-foreground focus:ring-2 focus:ring-secondary/50 focus:outline-none"
                     >
                       <option value="">Choose a Discord user...</option>
                       {resolveCandidates.map((c, i) => (
@@ -1129,7 +1129,7 @@ const ClanListPage = () => {
               setStatusFilter(e.target.value);
               setPage(1);
             }}
-            className="flex-1 sm:flex-none sm:w-[130px] bg-muted border border-border rounded-lg px-3 py-2.5 text-sm text-foreground focus:outline-none"
+            className="flex-1 sm:flex-none sm:w-[130px] bg-muted border border-border rounded-lg pl-3 pr-10 py-2.5 text-sm text-foreground focus:outline-none"
           >
             <option value="">All Status</option>
             <option value="active">Active</option>
@@ -1141,7 +1141,7 @@ const ClanListPage = () => {
               setTagFilter(e.target.value);
               setPage(1);
             }}
-            className="flex-1 sm:flex-none sm:w-[130px] bg-muted border border-border rounded-lg px-3 py-2.5 text-sm text-foreground focus:outline-none"
+            className="flex-1 sm:flex-none sm:w-[130px] bg-muted border border-border rounded-lg pl-3 pr-10 py-2.5 text-sm text-foreground focus:outline-none"
           >
             <option value="">All Tags</option>
             <option value="true">Has 420 Tag</option>
@@ -1153,7 +1153,7 @@ const ClanListPage = () => {
               setPromoFilter(e.target.value);
               setPage(1);
             }}
-            className="flex-1 sm:flex-none sm:w-[145px] bg-muted border border-border rounded-lg px-3 py-2.5 text-sm text-foreground focus:outline-none"
+            className="flex-1 sm:flex-none sm:w-[145px] bg-muted border border-border rounded-lg pl-3 pr-10 py-2.5 text-sm text-foreground focus:outline-none"
           >
             <option value="">All Promotion</option>
             <option value="true">Promotion Due</option>
@@ -1297,7 +1297,7 @@ const ClanListPage = () => {
                             updateMember(m.id, { status: e.target.value })
                           }
                           disabled={savingField === m.id}
-                          className={`bg-transparent border border-border/50 rounded px-2 py-1 text-xs font-display font-bold cursor-pointer focus:outline-none focus:ring-1 focus:ring-secondary/50 ${
+                          className={`bg-transparent border border-border/50 rounded pl-2 pr-8 py-1 text-xs font-display font-bold cursor-pointer focus:outline-none focus:ring-1 focus:ring-secondary/50 ${
                             m.status === "active"
                               ? "text-green-400"
                               : "text-red-400"
@@ -1488,7 +1488,7 @@ const ClanListPage = () => {
                         updateMember(m.id, { status: e.target.value })
                       }
                       disabled={savingField === m.id}
-                      className={`bg-transparent border border-border/50 rounded px-2 py-0.5 text-xs font-display font-bold cursor-pointer focus:outline-none ${
+                      className={`bg-transparent border border-border/50 rounded pl-2 pr-8 py-0.5 text-xs font-display font-bold cursor-pointer focus:outline-none ${
                         m.status === "active"
                           ? "text-green-400"
                           : "text-red-400"
