@@ -11,7 +11,7 @@ const RATE_LIMIT_MAX = 5;
 // Ban report log channel
 const BAN_REPORT_CHANNEL_ID = "1476342947644444693";
 const BAN_REPORT_PING_ROLE_ID =
-  process.env.DISCORD_STAFF_PING_ROLE_ID ?? process.env.DISCORD_OWNER_ROLE_ID ?? null;
+  process.env.DISCORD_OWNER_ROLE_ID ?? process.env.DISCORD_STAFF_PING_ROLE_ID ?? null;
 
 // Valid ban reasons
 const VALID_REASONS = [
