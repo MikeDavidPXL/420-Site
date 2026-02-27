@@ -37,9 +37,6 @@ interface ChangelogEntry {
   fileSize?: string;
 }
 
-const DOWNLOAD_URL =
-  "https://drive.google.com/drive/u/0/folders/1-rMFHAWvzPGLfbwvgcGsbM5_fB0cdHwa";
-
 const features = [
   { icon: Crosshair, title: "Weapon Skins", description: "Exclusive weapon textures for all weapons in CosmicV" },
   { icon: Car, title: "Vehicle Liveries", description: "!!STILL A WIP!!" },
@@ -92,6 +89,8 @@ const TexturePackPage = () => {
   const [staffMembers, setStaffMembers] = useState<StaffMember[]>([]);
   const [scrollY, setScrollY] = useState(0);
   const [changelogExpanded, setChangelogExpanded] = useState(false);
+  const [downloadLoading, setDownloadLoading] = useState(false);
+  const [downloadError, setDownloadError] = useState<string | null>(null);
   const initialHeight = useRef(
     typeof window !== "undefined" ? window.innerHeight : 800
   );
@@ -180,6 +179,29 @@ const TexturePackPage = () => {
   }));
   const latestChangelog = changelog[0];
   const olderChangelog = changelog.slice(1);
+
+  // ── Secure download handler ──────────────────────────
+  const handleDownload = async () => {
+    setDownloadLoading(true);
+    setDownloadError(null);
+    try {
+      const res = await fetch("/.netlify/functions/pack-download", {
+        method: "POST",
+        credentials: "include",
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setDownloadError(data.error || "Download failed.");
+        return;
+      }
+      // Open the single-use tokenized URL
+      window.open(data.url, "_blank", "noopener,noreferrer");
+    } catch {
+      setDownloadError("Network error. Please try again.");
+    } finally {
+      setDownloadLoading(false);
+    }
+  };
 
   // Hero image fades out over 70% of initial viewport height
   const heroOpacity = Math.max(0, 1 - scrollY / (initialHeight.current * 0.7));
@@ -593,15 +615,21 @@ const TexturePackPage = () => {
                     <span>{fileSize}</span>
                   </div>
                 </div>
-                <a
-                  href={DOWNLOAD_URL}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="inline-flex items-center gap-3 bg-primary text-primary-foreground font-display font-bold text-lg px-10 py-4 rounded-lg neon-box-blue hover:scale-105 animate-pulse-neon transition-all duration-1000 ease-in-out uppercase tracking-wider"
+                <button
+                  onClick={handleDownload}
+                  disabled={downloadLoading}
+                  className="inline-flex items-center gap-3 bg-primary text-primary-foreground font-display font-bold text-lg px-10 py-4 rounded-lg neon-box-blue hover:scale-105 animate-pulse-neon transition-all duration-1000 ease-in-out uppercase tracking-wider disabled:opacity-60 disabled:cursor-not-allowed"
                 >
-                  <Download className="w-6 h-6" />
-                  Download .RAR
-                </a>
+                  {downloadLoading ? (
+                    <Loader2 className="w-6 h-6 animate-spin" />
+                  ) : (
+                    <Download className="w-6 h-6" />
+                  )}
+                  {downloadLoading ? "Generating link..." : "Download .RAR"}
+                </button>
+                {downloadError && (
+                  <p className="text-destructive text-sm mt-3">{downloadError}</p>
+                )}
               </motion.div>
               <p className="text-muted-foreground text-xs">
                 You need <span className="text-primary">WinRAR</span> or <span className="text-primary">7-Zip</span> to extract this file.
