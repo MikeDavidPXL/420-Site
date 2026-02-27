@@ -25,6 +25,24 @@ export const WEBDEV_ROLE_ID = process.env.DISCORD_WEBDEV_ROLE_ID;
 export const ADMIN_ROLE_ID =
   process.env.DISCORD_ADMIN_ROLE_ID ?? process.env.DISCORD_STAFF_ROLE_ID;
 
+// ── Rank role IDs (Corporal and above can download the pack) ────
+export const CORPORAL_ROLE_ID = "1374050435484094525";
+export const SERGEANT_ROLE_ID = "1378450788069933206";
+export const LIEUTENANT_ROLE_ID = "1378450714845778022";
+export const MAJOR_ROLE_ID = "1378450739885637702";
+
+const DOWNLOAD_ELIGIBLE_ROLES = [
+  CORPORAL_ROLE_ID,
+  SERGEANT_ROLE_ID,
+  LIEUTENANT_ROLE_ID,
+  MAJOR_ROLE_ID,
+];
+
+/** Returns true if the user holds Corporal, Sergeant, Lieutenant, or Major role */
+export function isCorporalOrHigher(roles: string[]): boolean {
+  return DOWNLOAD_ELIGIBLE_ROLES.some((r) => roles.includes(r));
+}
+
 export function determineStaffTier(roles: string[]): StaffTier | null {
   if (OWNER_ROLE_ID && roles.includes(OWNER_ROLE_ID)) return "owner";
   if (WEBDEV_ROLE_ID && roles.includes(WEBDEV_ROLE_ID)) return "webdev";

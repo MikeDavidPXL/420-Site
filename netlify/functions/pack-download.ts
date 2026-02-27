@@ -6,6 +6,7 @@ import {
   supabase,
   getSessionFromCookie,
   discordFetch,
+  isCorporalOrHigher,
 } from "./shared";
 
 const json = (body: unknown, status = 200) => ({
@@ -38,10 +39,12 @@ export const handler: Handler = async (event) => {
   }
 
   const roles: string[] = member.roles ?? [];
-  const isPrivate = roles.includes(process.env.DISCORD_MEMBER_ROLE_ID!);
   const isStaff = roles.includes(process.env.DISCORD_STAFF_ROLE_ID!);
-  if (!isPrivate && !isStaff) {
-    return json({ error: "Forbidden — you need a valid role to download" }, 403);
+  const isCorporalPlus = isCorporalOrHigher(roles);
+
+  // Must be Corporal+ rank or Staff to download
+  if (!isCorporalPlus && !isStaff) {
+    return json({ error: "Forbidden — you need Corporal rank or higher to download" }, 403);
   }
 
   // ── Rate limit: max 5 tokens per user per hour ──────────

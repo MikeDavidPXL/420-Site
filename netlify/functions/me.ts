@@ -10,6 +10,7 @@ import {
   json,
   buildDiscordAvatarUrl,
   determineStaffTier,
+  isCorporalOrHigher,
 } from "./shared";
 
 const handler: Handler = async (event) => {
@@ -48,6 +49,7 @@ const handler: Handler = async (event) => {
   const isPrivate = roles.includes(process.env.DISCORD_MEMBER_ROLE_ID!);
   const isKoth = roles.includes(process.env.DISCORD_KOTH_PLAYER_ROLE_ID!);
   const isUnverified = roles.includes(process.env.DISCORD_UNVERIFIED_ROLE_ID!);
+  const isCorporalPlus = isCorporalOrHigher(roles);
 
   // ── Effective status: purely based on Discord roles ───────
   // staff/private → "accepted" (has pack access)
@@ -137,6 +139,7 @@ const handler: Handler = async (event) => {
       is_staff: isStaff,
       staff_tier: staffTier,
       is_private: isPrivate,
+      is_corporal_or_higher: isCorporalPlus,
       is_koth: isKoth,
       is_unverified: isUnverified,
       effective_status: effectiveStatus,

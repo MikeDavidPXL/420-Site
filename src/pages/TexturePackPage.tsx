@@ -23,6 +23,7 @@ import {
   X,
   AlertTriangle,
   ChevronDown,
+  Lock,
 } from "lucide-react";
 import clanLogo from "@/assets/clan-logo.png";
 import heroBanner from "@/assets/420Gif.png";
@@ -187,6 +188,7 @@ const TexturePackPage = () => {
   }
 
   const navItems = getNavItems(user!.is_staff);
+  const canDownload = !!(user?.is_corporal_or_higher || user?.is_staff);
   const staffByRole = roleOrder.map((role) => ({
     role,
     members: staffMembers.filter((m) => m.staff_role === role),
@@ -608,11 +610,16 @@ const TexturePackPage = () => {
               <h2 className="font-display text-3xl sm:text-4xl font-bold uppercase mb-6 neon-text-blue text-primary">
                 Download
               </h2>
-              <p className="text-muted-foreground mb-10">
-                Grab the texture pack and transform your FiveM experience today. <br></br>
-                You also need the role <span className="text-primary font-semibold neon-text-blue">Corporal</span> for the file to unlock. <br></br>
-                <span className="text-primary font-semibold neon-text-blue">NOTE:</span> If u are caught sharing the file you will be blacklisted.
-              </p>
+              {canDownload ? (
+                <p className="text-muted-foreground mb-10">
+                  Grab the texture pack and transform your FiveM experience today. <br></br>
+                  <span className="text-primary font-semibold neon-text-blue">NOTE:</span> If u are caught sharing the file you will be blacklisted.
+                </p>
+              ) : (
+                <p className="text-muted-foreground mb-10">
+                  The texture pack download is currently locked.
+                </p>
+              )}
               <motion.div
                 className="bg-card border border-border rounded-xl p-8 mb-8 neon-border-blue"
                 initial={{ opacity: 0, scale: 0.95 }}
@@ -635,20 +642,36 @@ const TexturePackPage = () => {
                     <span>{fileSize}</span>
                   </div>
                 </div>
-                <button
-                  onClick={handleDownload}
-                  disabled={downloadLoading}
-                  className="inline-flex items-center gap-3 bg-primary text-primary-foreground font-display font-bold text-lg px-10 py-4 rounded-lg neon-box-blue hover:scale-105 animate-pulse-neon transition-all duration-1000 ease-in-out uppercase tracking-wider disabled:opacity-60 disabled:cursor-not-allowed"
-                >
-                  {downloadLoading ? (
-                    <Loader2 className="w-6 h-6 animate-spin" />
-                  ) : (
-                    <Download className="w-6 h-6" />
-                  )}
-                  {downloadLoading ? "Generating link..." : "Download .RAR"}
-                </button>
-                {downloadError && (
-                  <p className="text-destructive text-sm mt-3">{downloadError}</p>
+                {canDownload ? (
+                  <>
+                    <button
+                      onClick={handleDownload}
+                      disabled={downloadLoading}
+                      className="inline-flex items-center gap-3 bg-primary text-primary-foreground font-display font-bold text-lg px-10 py-4 rounded-lg neon-box-blue hover:scale-105 animate-pulse-neon transition-all duration-1000 ease-in-out uppercase tracking-wider disabled:opacity-60 disabled:cursor-not-allowed"
+                    >
+                      {downloadLoading ? (
+                        <Loader2 className="w-6 h-6 animate-spin" />
+                      ) : (
+                        <Download className="w-6 h-6" />
+                      )}
+                      {downloadLoading ? "Generating link..." : "Download .RAR"}
+                    </button>
+                    {downloadError && (
+                      <p className="text-destructive text-sm mt-3">{downloadError}</p>
+                    )}
+                  </>
+                ) : (
+                  <div
+                    className="inline-flex items-center gap-3 border-2 border-border text-muted-foreground/40 font-display font-bold text-lg px-10 py-4 rounded-lg uppercase tracking-wider cursor-not-allowed select-none"
+                    aria-disabled="true"
+                  >
+                    <Lock className="w-5 h-5" />
+                    <span>
+                      Reach{" "}
+                      <span className="text-primary neon-text-blue">Corporal</span>
+                      {" "}to unlock
+                    </span>
+                  </div>
                 )}
               </motion.div>
               <p className="text-muted-foreground text-xs">
