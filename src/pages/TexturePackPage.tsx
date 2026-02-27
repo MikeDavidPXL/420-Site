@@ -338,11 +338,11 @@ const TexturePackPage = () => {
                     <h4 className="font-display text-xl font-bold uppercase mb-6 text-center text-secondary">
                       {group.role}
                     </h4>
-                    <div className="flex flex-wrap justify-center gap-6">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 max-w-[620px] mx-auto">
                       {group.members.map((member, memberIndex) => (
                         <motion.div
                           key={member.discord_id}
-                          className="bg-card border border-border rounded-lg p-6 text-center hover:border-primary/50 transition-all duration-300 w-full sm:w-[280px]"
+                          className="bg-card border border-border rounded-lg p-6 text-center hover:border-primary/50 transition-all duration-300 w-full"
                           initial={{ opacity: 0, y: 20 }}
                           animate={isInView ? { opacity: 1, y: 0 } : {}}
                           transition={{
