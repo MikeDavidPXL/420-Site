@@ -12,6 +12,10 @@ import {
   Search,
   ChevronLeft,
   ChevronRight,
+  ChevronUp,
+  ChevronDown,
+  ArrowUpDown,
+  FilterX,
   LogOut,
   Plus,
   Save,
@@ -93,6 +97,28 @@ interface ResolveCandidate {
 
 const RANKS = ["Private", "Corporal", "Sergeant", "Lieutenant", "Major"];
 
+// Rank order for sorting (higher index = higher rank)
+const RANK_ORDER: Record<string, number> = {
+  Private: 0,
+  Corporal: 1,
+  Sergeant: 2,
+  Lieutenant: 3,
+  Major: 4,
+};
+
+// Sortable columns
+type SortKey =
+  | "discord_name"
+  | "ign"
+  | "uid"
+  | "join_date"
+  | "time_in_clan_days"
+  | "status"
+  | "rank_current"
+  | "rank_next"
+  | "days_until_next_rank";
+type SortDirection = "asc" | "desc";
+
 // ══════════════════════════════════════════════════════════
 //  CLAN LIST PAGE
 // ══════════════════════════════════════════════════════════
@@ -115,6 +141,10 @@ const ClanListPage = () => {
   const [promoFilter, setPromoFilter] = useState("");
   const searchTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [debouncedSearch, setDebouncedSearch] = useState("");
+
+  // ── Sorting ─────────────────────────────────────────────
+  const [sortKey, setSortKey] = useState<SortKey | null>(null);
+  const [sortDirection, setSortDirection] = useState<SortDirection>("asc");
 
   // ── Upload state ────────────────────────────────────────
   const [uploading, setUploading] = useState(false);
@@ -240,6 +270,94 @@ const ClanListPage = () => {
       setPage(1);
     }, 400);
   };
+
+  // ── Clear all filters ──────────────────────────────────
+  const clearFilters = () => {
+    setSearch("");
+    setDebouncedSearch("");
+    setStatusFilter("");
+    setTagFilter("");
+    setPromoFilter("");
+    setSortKey(null);
+    setSortDirection("asc");
+    setPage(1);
+  };
+
+  const hasActiveFilters =
+    search !== "" ||
+    statusFilter !== "" ||
+    tagFilter !== "" ||
+    promoFilter !== "" ||
+    sortKey !== null;
+
+  // ── Sorting handler ────────────────────────────────────
+  const handleSort = (key: SortKey) => {
+    if (sortKey === key) {
+      setSortDirection((prev) => (prev === "asc" ? "desc" : "asc"));
+    } else {
+      setSortKey(key);
+      // Default direction per column type
+      const defaultDesc: SortKey[] = [
+        "join_date",
+        "time_in_clan_days",
+        "rank_current",
+        "rank_next",
+      ];
+      setSortDirection(defaultDesc.includes(key) ? "desc" : "asc");
+    }
+  };
+
+  // ── Sort members client-side ───────────────────────────
+  const sortedMembers = [...members].sort((a, b) => {
+    if (!sortKey) return 0;
+    const dir = sortDirection === "asc" ? 1 : -1;
+
+    switch (sortKey) {
+      case "discord_name":
+        return dir * a.discord_name.localeCompare(b.discord_name);
+      case "ign":
+        return dir * a.ign.localeCompare(b.ign);
+      case "uid": {
+        const aNum = parseFloat(a.uid);
+        const bNum = parseFloat(b.uid);
+        if (!isNaN(aNum) && !isNaN(bNum)) return dir * (aNum - bNum);
+        return dir * a.uid.localeCompare(b.uid);
+      }
+      case "join_date":
+        return dir * (new Date(a.join_date).getTime() - new Date(b.join_date).getTime());
+      case "time_in_clan_days":
+        return dir * (a.time_in_clan_days - b.time_in_clan_days);
+      case "status":
+        // Active = 1, Inactive = 0 for ascending
+        return dir * ((a.status === "active" ? 1 : 0) - (b.status === "active" ? 1 : 0));
+      case "rank_current":
+        return dir * ((RANK_ORDER[a.rank_current] ?? -1) - (RANK_ORDER[b.rank_current] ?? -1));
+      case "rank_next": {
+        const aRank = a.rank_next ? (RANK_ORDER[a.rank_next] ?? -1) : -2;
+        const bRank = b.rank_next ? (RANK_ORDER[b.rank_next] ?? -1) : -2;
+        return dir * (aRank - bRank);
+      }
+      case "days_until_next_rank": {
+        // Convert special values: Ready=0, Paused/Max rank=Infinity
+        const parseVal = (v: string | number): number => {
+          if (typeof v === "number") return v;
+          if (v === "Ready") return 0;
+          if (v === "Paused" || v === "Max rank") return Infinity;
+          const num = parseFloat(v);
+          return isNaN(num) ? Infinity : num;
+        };
+        const aVal = parseVal(a.days_until_next_rank);
+        const bVal = parseVal(b.days_until_next_rank);
+        // For ascending, lower is better; Infinity goes last
+        if (aVal === Infinity && bVal === Infinity) return 0;
+        if (aVal === Infinity) return 1;
+        if (bVal === Infinity) return -1;
+        return dir * (aVal - bVal);
+      }
+      default:
+        return 0;
+    }
+  });
 
   // ── Bulk resolve handler ────────────────────────────────
   const handleBulkResolve = async () => {
@@ -1276,6 +1394,52 @@ const ClanListPage = () => {
             <option value="true">Promotion Due</option>
             <option value="false">No Promotion</option>
           </select>
+          {hasActiveFilters && (
+            <button
+              onClick={clearFilters}
+              className="inline-flex items-center gap-1.5 text-secondary hover:text-secondary/80 text-sm font-display font-bold transition hover:underline"
+            >
+              <FilterX className="w-4 h-4" />
+              Clear filters
+            </button>
+          )}
+        </div>
+
+        {/* ── Mobile sort controls ── */}
+        <div className="lg:hidden flex flex-wrap gap-3 items-center">
+          <select
+            value={sortKey ?? ""}
+            onChange={(e) => {
+              const val = e.target.value as SortKey | "";
+              if (val === "") {
+                setSortKey(null);
+              } else {
+                handleSort(val);
+              }
+            }}
+            className="flex-1 bg-muted border border-border rounded-lg pl-3 pr-10 py-2.5 text-sm text-foreground focus:outline-none"
+          >
+            <option value="">Sort by...</option>
+            <option value="discord_name">Discord Name</option>
+            <option value="ign">IGN</option>
+            <option value="join_date">Join Date</option>
+            <option value="time_in_clan_days">Days in Clan</option>
+            <option value="rank_current">Rank</option>
+            <option value="days_until_next_rank">Days Until Next</option>
+          </select>
+          {sortKey && (
+            <button
+              onClick={() => setSortDirection((d) => (d === "asc" ? "desc" : "asc"))}
+              className="inline-flex items-center gap-1.5 bg-secondary/20 hover:bg-secondary/30 text-secondary px-3 py-2.5 rounded-lg text-sm font-display font-bold transition"
+            >
+              {sortDirection === "asc" ? (
+                <ChevronUp className="w-4 h-4" />
+              ) : (
+                <ChevronDown className="w-4 h-4" />
+              )}
+              {sortDirection === "asc" ? "Ascending" : "Descending"}
+            </button>
+          )}
         </div>
 
         {/* ── Table (desktop) / Card view (mobile) ── */}
@@ -1300,35 +1464,59 @@ const ClanListPage = () => {
               <table className="w-full text-sm">
                 <thead>
                   <tr className="bg-secondary/10 border-b border-secondary/20">
-                    {[
-                      "Discord Name",
-                      "IGN",
-                      "UID",
-                      "Join Date",
-                      "Days",
-                      "420 Tag",
-                      "Status",
-                      "Rank",
-                      "Next Rank",
-                      "Until Next",
-                      "Info",
-                    ].map((h) => (
-                      <th
-                        key={h}
-                        className={`font-display font-bold text-secondary px-3 py-3 text-xs uppercase tracking-wider whitespace-nowrap ${
-                          h === "420 Tag" || h === "Info"
-                            ? "text-center"
-                            : "text-left"
-                        }`}
-                        style={h === "Until Next" ? { textAlign: "center" } : undefined}
-                      >
-                        {h}
-                      </th>
-                    ))}
+                    {([
+                      { label: "Discord Name", key: "discord_name" as SortKey },
+                      { label: "IGN", key: "ign" as SortKey },
+                      { label: "UID", key: "uid" as SortKey },
+                      { label: "Join Date", key: "join_date" as SortKey },
+                      { label: "Days", key: "time_in_clan_days" as SortKey },
+                      { label: "420 Tag", key: null },
+                      { label: "Status", key: "status" as SortKey },
+                      { label: "Rank", key: "rank_current" as SortKey },
+                      { label: "Next Rank", key: "rank_next" as SortKey },
+                      { label: "Until Next", key: "days_until_next_rank" as SortKey },
+                      { label: "Info", key: null },
+                    ] as { label: string; key: SortKey | null }[]).map((col) => {
+                      const isSortable = col.key !== null;
+                      const isActive = sortKey === col.key;
+                      return (
+                        <th
+                          key={col.label}
+                          onClick={() => isSortable && col.key && handleSort(col.key)}
+                          className={`font-display font-bold px-3 py-3 text-xs uppercase tracking-wider whitespace-nowrap ${
+                            col.label === "420 Tag" || col.label === "Info"
+                              ? "text-center"
+                              : "text-left"
+                          } ${
+                            isSortable
+                              ? "cursor-pointer hover:bg-secondary/20 transition select-none"
+                              : ""
+                          } ${
+                            isActive ? "text-primary bg-secondary/15" : "text-secondary"
+                          }`}
+                          style={col.label === "Until Next" ? { textAlign: "center" } : undefined}
+                        >
+                          <span className="inline-flex items-center gap-1">
+                            {col.label}
+                            {isSortable && (
+                              isActive ? (
+                                sortDirection === "asc" ? (
+                                  <ChevronUp className="w-3.5 h-3.5" />
+                                ) : (
+                                  <ChevronDown className="w-3.5 h-3.5" />
+                                )
+                              ) : (
+                                <ArrowUpDown className="w-3 h-3 opacity-40" />
+                              )
+                            )}
+                          </span>
+                        </th>
+                      );
+                    })}
                   </tr>
                 </thead>
                 <tbody>
-                  {members.map((m, i) => (
+                  {sortedMembers.map((m, i) => (
                     <tr
                       key={m.id}
                       className={`border-b border-border/50 ${
@@ -1522,7 +1710,7 @@ const ClanListPage = () => {
 
             {/* Mobile card view */}
             <div className="lg:hidden space-y-3">
-              {members.map((m) => (
+              {sortedMembers.map((m) => (
                 <div
                   key={m.id}
                   className={`bg-card border rounded-lg p-4 space-y-2 ${
