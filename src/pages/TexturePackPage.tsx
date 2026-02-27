@@ -37,6 +37,12 @@ interface ChangelogEntry {
   fileSize?: string;
 }
 
+interface PackConfig {
+  version?: string;
+  fileSize?: string;
+  fileName?: string;
+}
+
 const features = [
   { icon: Crosshair, title: "Weapon Skins", description: "Exclusive weapon textures for all weapons in CosmicV" },
   { icon: Car, title: "Vehicle Liveries", description: "!!STILL A WIP!!" },
@@ -85,6 +91,7 @@ const TexturePackPage = () => {
   const [changelog, setChangelog] = useState<ChangelogEntry[]>([]);
   const [latestVersion, setLatestVersion] = useState("1.2.1");
   const [fileSize, setFileSize] = useState("601.6 MB");
+  const [fileName, setFileName] = useState("420_Clan_TexturePack.rar");
   const [pendingCount, setPendingCount] = useState(0);
   const [staffMembers, setStaffMembers] = useState<StaffMember[]>([]);
   const [scrollY, setScrollY] = useState(0);
@@ -111,14 +118,21 @@ const TexturePackPage = () => {
   }, []);
 
   useEffect(() => {
+    fetch("/pack-config.json")
+      .then((res) => res.json())
+      .then((data: PackConfig) => {
+        if (data.version) setLatestVersion(data.version);
+        if (data.fileSize) setFileSize(data.fileSize);
+        if (data.fileName) setFileName(data.fileName);
+      })
+      .catch(console.error);
+  }, []);
+
+  useEffect(() => {
     fetch("/changelog.json")
       .then((res) => res.json())
       .then((data: ChangelogEntry[]) => {
         setChangelog(data);
-        if (data.length > 0) {
-          setLatestVersion(data[0].version);
-          if (data[0].fileSize) setFileSize(data[0].fileSize);
-        }
       })
       .catch(console.error);
   }, []);
@@ -607,7 +621,7 @@ const TexturePackPage = () => {
                 <div className="flex items-center justify-center gap-3 mb-6">
                   <FileArchive className="w-8 h-8 text-primary" />
                   <span className="font-display text-xl font-bold text-foreground">
-                    420_Clan_TexturePack.rar
+                    {fileName}
                   </span>
                 </div>
                 <div className="flex items-center justify-center gap-8 text-sm text-muted-foreground mb-8">
