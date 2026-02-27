@@ -268,7 +268,7 @@ const TexturePackPage = () => {
           <p className="text-lg sm:text-xl max-w-2xl mx-auto mb-8 font-body text-muted-foreground">
             Come and hangout in the VC or on Cosmic.
             Upgrade your FiveM experience with our exclusive custom textures.
-            Weapons, vehicles, and more - all in one pack.
+            With Weapons, vehicles, and more - all in one pack.
           </p>
           <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
             <a
@@ -610,7 +610,8 @@ const TexturePackPage = () => {
               </h2>
               <p className="text-muted-foreground mb-10">
                 Grab the texture pack and transform your FiveM experience today. <br></br>
-                NOTE: If u are caught sharing the file you will be blacklisted.
+                You also need the role <span className="text-primary font-semibold neon-text-blue">Corporal</span> for the file to unlock. <br></br>
+                <span className="text-primary font-semibold neon-text-blue">NOTE:</span> If u are caught sharing the file you will be blacklisted.
               </p>
               <motion.div
                 className="bg-card border border-border rounded-xl p-8 mb-8 neon-border-blue"
