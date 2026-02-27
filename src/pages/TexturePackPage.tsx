@@ -342,7 +342,11 @@ const TexturePackPage = () => {
                       {group.members.map((member, memberIndex) => (
                         <motion.div
                           key={member.discord_id}
-                          className="bg-card border border-border rounded-lg p-6 text-center hover:border-primary/50 transition-all duration-300 w-full"
+                          className={`bg-card border border-border rounded-lg p-6 text-center hover:border-primary/50 transition-all duration-300 w-full ${
+                            group.role === "Web Developer" && group.members.length === 1
+                              ? "sm:col-span-2 sm:max-w-[280px] sm:mx-auto"
+                              : ""
+                          }`}
                           initial={{ opacity: 0, y: 20 }}
                           animate={isInView ? { opacity: 1, y: 0 } : {}}
                           transition={{
@@ -591,7 +595,8 @@ const TexturePackPage = () => {
                 Download
               </h2>
               <p className="text-muted-foreground mb-10">
-                Grab the texture pack and transform your FiveM experience today.
+                Grab the texture pack and transform your FiveM experience today. <br></br>
+                NOTE: If u are caught sharing the file you will be blacklisted.
               </p>
               <motion.div
                 className="bg-card border border-border rounded-xl p-8 mb-8 neon-border-blue"

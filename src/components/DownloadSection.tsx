@@ -36,6 +36,7 @@ const DownloadSection = () => {
           </h2>
           <p className="text-muted-foreground mb-10">
             Grab the texture pack and transform your FiveM experience today.
+            NOTE: If u are caught sharing the file you will be blacklisted.
           </p>
 
           {/* File info card */}
