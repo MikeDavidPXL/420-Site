@@ -709,15 +709,37 @@ function PackNavbar({
   visible?: boolean;
 }) {
   const [scrolled, setScrolled] = useState(false);
+  const [activeSection, setActiveSection] = useState("#hero");
   const [mobileOpen, setMobileOpen] = useState(false);
   const [shieldOpen, setShieldOpen] = useState(false);
   const shieldRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    const onScroll = () => setScrolled(window.scrollY > 50);
+    const sectionHrefs = navItems
+      .filter((item) => !item.route && item.href.startsWith("#"))
+      .map((item) => item.href);
+
+    const onScroll = () => {
+      setScrolled(window.scrollY > 50);
+
+      const scrollPosition = window.scrollY + 140;
+      let current = sectionHrefs[0] ?? "#hero";
+
+      for (const href of sectionHrefs) {
+        const el = document.querySelector(href) as HTMLElement | null;
+        if (!el) continue;
+        if (scrollPosition >= el.offsetTop) {
+          current = href;
+        }
+      }
+
+      setActiveSection(current);
+    };
+
+    onScroll();
     window.addEventListener("scroll", onScroll, { passive: true });
     return () => window.removeEventListener("scroll", onScroll);
-  }, []);
+  }, [navItems]);
 
   // Close shield dropdown when clicking outside
   useEffect(() => {
@@ -753,8 +775,11 @@ function PackNavbar({
         <div className="hidden md:flex items-center gap-6">
           {navItems.map((item) => {
             const isInstall = item.label === "Installation";
+            const isActive = !item.route && item.href === activeSection;
             const cls =
-              "font-body text-sm font-medium hover:text-primary transition-colors duration-200 uppercase tracking-wider";
+              `font-body text-sm font-medium hover:text-primary transition-colors duration-200 uppercase tracking-wider ${
+                isActive ? "text-primary" : ""
+              }`;
 
             if (item.route) {
               return (
@@ -853,8 +878,11 @@ function PackNavbar({
           <div className="px-4 py-4 flex flex-col gap-3">
             {navItems.map((item) => {
               const isInstall = item.label === "Installation";
+              const isActive = !item.route && item.href === activeSection;
               const cls =
-                "font-body text-sm font-medium uppercase tracking-wider transition-colors duration-200 text-foreground";
+                `font-body text-sm font-medium uppercase tracking-wider transition-colors duration-200 ${
+                  isActive ? "text-primary" : "text-foreground"
+                }`;
 
               if (item.route) {
                 return (
