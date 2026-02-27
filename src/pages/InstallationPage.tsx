@@ -18,8 +18,7 @@ import {
 } from "lucide-react";
 import clanLogo from "@/assets/clan-logo.png";
 
-const DOWNLOAD_URL =
-  "https://drive.google.com/drive/u/0/folders/1-rMFHAWvzPGLfbwvgcGsbM5_fB0cdHwa";
+const DOWNLOAD_URL = "/pack#download";
 
 interface Step {
   number: number;
