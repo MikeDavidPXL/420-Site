@@ -1,9 +1,16 @@
 // pack-redirect — Validates a single-use download token and redirects to the
 // actual file URL. The real download URL never appears in frontend code.
 import type { Handler } from "@netlify/functions";
+import { GetObjectCommand, S3Client } from "@aws-sdk/client-s3";
+import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import { supabase, redirect as buildRedirect } from "./shared";
 
-const DOWNLOAD_URL = process.env.PACK_DOWNLOAD_URL!;
+const DOWNLOAD_URL = process.env.PACK_DOWNLOAD_URL;
+const R2_ENDPOINT = process.env.R2_ENDPOINT;
+const R2_ACCESS_KEY_ID = process.env.R2_ACCESS_KEY_ID;
+const R2_SECRET_ACCESS_KEY = process.env.R2_SECRET_ACCESS_KEY;
+const R2_BUCKET = process.env.R2_BUCKET;
+const R2_OBJECT_KEY = process.env.R2_OBJECT_KEY;
 
 const html = (body: string, status = 200) => ({
   statusCode: status,
@@ -23,6 +30,41 @@ const errorPage = (message: string, status = 403) =>
     status
   );
 
+function createR2Client() {
+  if (!R2_ENDPOINT || !R2_ACCESS_KEY_ID || !R2_SECRET_ACCESS_KEY) {
+    return null;
+  }
+
+  return new S3Client({
+    region: "auto",
+    endpoint: R2_ENDPOINT,
+    credentials: {
+      accessKeyId: R2_ACCESS_KEY_ID,
+      secretAccessKey: R2_SECRET_ACCESS_KEY,
+    },
+  });
+}
+
+async function getPackDownloadUrl() {
+  const r2Client = createR2Client();
+
+  if (r2Client && R2_BUCKET && R2_OBJECT_KEY) {
+    const command = new GetObjectCommand({
+      Bucket: R2_BUCKET,
+      Key: R2_OBJECT_KEY,
+      ResponseContentDisposition: "attachment",
+    });
+
+    return getSignedUrl(r2Client, command, { expiresIn: 120 });
+  }
+
+  if (DOWNLOAD_URL) {
+    return DOWNLOAD_URL;
+  }
+
+  return null;
+}
+
 export const handler: Handler = async (event) => {
   if (event.httpMethod !== "GET") {
     return errorPage("Invalid request method.", 405);
@@ -33,8 +75,9 @@ export const handler: Handler = async (event) => {
     return errorPage("Missing download token.", 400);
   }
 
-  if (!DOWNLOAD_URL) {
-    console.error("PACK_DOWNLOAD_URL env var is not set");
+  const downloadUrl = await getPackDownloadUrl();
+  if (!downloadUrl) {
+    console.error("R2 env vars are missing and PACK_DOWNLOAD_URL fallback is not set");
     return errorPage("Download is temporarily unavailable.", 500);
   }
 
@@ -80,5 +123,5 @@ export const handler: Handler = async (event) => {
     .eq("id", row.id);
 
   // ── Redirect to real download ───────────────────────────
-  return buildRedirect(DOWNLOAD_URL);
+  return buildRedirect(downloadUrl);
 };
