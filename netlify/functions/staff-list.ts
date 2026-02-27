@@ -34,7 +34,11 @@ const handler: Handler = async (event) => {
   );
 
   const requesterRoles: string[] = requester?.roles ?? [];
-  if (!determineStaffTier(requesterRoles)) {
+  const isPrivate = requesterRoles.includes(process.env.DISCORD_MEMBER_ROLE_ID!);
+  const isStaff = !!determineStaffTier(requesterRoles) || requesterRoles.includes(process.env.DISCORD_STAFF_ROLE_ID!);
+
+  // Allow any authenticated member (Private or Staff) to see the staff list
+  if (!isPrivate && !isStaff) {
     return json({ error: "Forbidden" }, 403);
   }
 
