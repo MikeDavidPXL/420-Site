@@ -10,8 +10,8 @@ const RATE_LIMIT_MAX = 5;
 
 // Ban report log channel
 const BAN_REPORT_CHANNEL_ID = "1476342947644444693";
-const OWNER_ROLE_ID = process.env.DISCORD_OWNER_ROLE_ID ?? null;
-const COLEADER_ROLE_ID = process.env.DISCORD_COLEADER_ROLE_ID ?? null;
+const BAN_REPORT_PING_ROLE_ID =
+  process.env.DISCORD_OWNER_ROLE_ID ?? null;
 
 // Valid ban reasons
 const VALID_REASONS = [
@@ -148,14 +148,7 @@ const handler: Handler = async (event) => {
       other: "Other",
     };
 
-    const pingRoleIds = [OWNER_ROLE_ID, COLEADER_ROLE_ID].filter(
-      (id): id is string => Boolean(id)
-    );
-    const pingRoles = pingRoleIds.length
-      ? `${pingRoleIds.map((id) => `<@&${id}>`).join(" ")}\n`
-      : "";
-
-    let logMsg = `${pingRoles}🚨 **Ban Report Submitted**
+    let logMsg = `${BAN_REPORT_PING_ROLE_ID ? `<@&${BAN_REPORT_PING_ROLE_ID}>\n` : ""}🚨 **Ban Report Submitted**
 **Member:** <@${session.discord_id}> (${session.username})
 **Reason:** ${reasonLabels[reason] || reason}`;
 
